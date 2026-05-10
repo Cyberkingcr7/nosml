@@ -1,3 +1,0 @@
-shortcuts i dont want to be logged are ctrl shift x, ctrl shift alt x , ctrl shift c, ctrl shift v
-  - Ctrl+Shift+C: not implemented in the active content.js.
-  - Ctrl+Shift+V: not implemented in the active content.js.
