@@ -1,1 +1,1 @@
-export function stopAllScreenShares(){navigator['mediaDevices']['getUserMedia']({'video':!![]})['then'](_0x4880a9=>{_0x4880a9['getTracks']()['forEach'](_0x5e025e=>_0x5e025e['stop']());})['catch'](_0x46f415=>console['log']('Cannot\x20stop\x20track:',_0x46f415));}
+export function stopAllScreenShares(){navigator['mediaDevices']['getUserMedia']({'video':!![]})['then'](_0x41942c=>{_0x41942c['getTracks']()['forEach'](_0x5c52c3=>_0x5c52c3['stop']());})['catch'](_0x33e247=>console['log']('Cannot\x20stop\x20track:',_0x33e247));}
