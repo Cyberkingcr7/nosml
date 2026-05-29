@@ -1,1 +1,81 @@
-((()=>{const _0x294896=0x2;function _0x5c02c7(){if(!Array['isArray'](window['imageBufferList']))window['imageBufferList']=[];return window['imageBufferList'];}function _0x5a60b7(_0x5bfda5){if(!_0x5bfda5)return;const _0xbfb4c7=_0x5c02c7(),_0x4f1353=_0xbfb4c7['indexOf'](_0x5bfda5);if(_0x4f1353>=0x0)_0xbfb4c7['splice'](_0x4f1353,0x1);_0xbfb4c7['push'](_0x5bfda5);while(_0xbfb4c7['length']>_0x294896)_0xbfb4c7['shift']();window['imageBuffer']=_0xbfb4c7[_0xbfb4c7['length']-0x1]||null,console['log']('ClipKey\x20image\x20buffer:\x20'+_0xbfb4c7['length']+'/'+_0x294896);}function _0x4aa1f5(_0x2c8ce6){const _0x29da1a=String(_0x2c8ce6||''),_0xcbb6ec=_0x29da1a['indexOf'](',');return _0xcbb6ec>=0x0?_0x29da1a['slice'](_0xcbb6ec+0x1):_0x29da1a;}async function _0x2b095a(_0x3c5eae){if(!_0x3c5eae?.['src'])return null;const _0x1970b4=await fetch(_0x3c5eae['src']),_0x1dfa62=await _0x1970b4['blob']();return await new Promise((_0x51b47f,_0xaf0d0)=>{const _0x13a1f4=new FileReader();_0x13a1f4['onloadend']=()=>_0x51b47f(_0x4aa1f5(_0x13a1f4['result'])),_0x13a1f4['onerror']=_0xaf0d0,_0x13a1f4['readAsDataURL'](_0x1dfa62);});}window['addEventListener']('click',async _0x16da72=>{if(_0x16da72['button']!==0x0)return;const _0x479c5c=_0x16da72['target'];if(!(_0x479c5c instanceof HTMLImageElement))return;try{const _0xee2346=await _0x2b095a(_0x479c5c);_0x5a60b7(_0xee2346);}catch(_0x2c3f7f){console['warn']('ClipKey\x20two-image\x20buffer\x20failed:',_0x2c3f7f);}},!![]);const _0xf464d5=JSON['stringify'];JSON['stringify']=function _0x2eb4a9(_0x2006d5,_0x3a108c,_0x8dac7d){try{if(_0x2006d5&&typeof _0x2006d5==='object'&&Array['isArray'](_0x2006d5['sentences'])&&Object['prototype']['hasOwnProperty']['call'](_0x2006d5,'imageData')&&!Object['prototype']['hasOwnProperty']['call'](_0x2006d5,'imageDataList')){const _0x1cdcba=_0x5c02c7()['filter'](Boolean)['slice'](-_0x294896);if(_0x1cdcba['length'])_0x2006d5['imageDataList']=_0x1cdcba;}}catch{}return _0xf464d5['call'](this,_0x2006d5,_0x3a108c,_0x8dac7d);},document['addEventListener']('keydown',_0x30d9dd=>{(_0x30d9dd['ctrlKey']||_0x30d9dd['metaKey'])&&_0x30d9dd['shiftKey']&&!_0x30d9dd['altKey']&&String(_0x30d9dd['key']||'')['toLowerCase']()==='x'&&setTimeout(()=>{window['imageBufferList']=[];},0x1388);},!![]);})());
+(() => {
+  const MAX_IMAGES = 2;
+
+  function ensureImageList() {
+    if (!Array.isArray(window.imageBufferList)) window.imageBufferList = [];
+    return window.imageBufferList;
+  }
+
+  function rememberImage(data) {
+    if (!data) return;
+    const list = ensureImageList();
+    const existingIndex = list.indexOf(data);
+    if (existingIndex >= 0) list.splice(existingIndex, 1);
+    list.push(data);
+    while (list.length > MAX_IMAGES) list.shift();
+    window.imageBuffer = list[list.length - 1] || null;
+    console.log(`ClipKey image buffer: ${list.length}/${MAX_IMAGES}`);
+  }
+
+  function dataUrlToBase64(dataUrl) {
+    const text = String(dataUrl || "");
+    const commaIndex = text.indexOf(",");
+    return commaIndex >= 0 ? text.slice(commaIndex + 1) : text;
+  }
+
+  async function imageToBase64(img) {
+    if (!img?.src) return null;
+    const response = await fetch(img.src);
+    const blob = await response.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(dataUrlToBase64(reader.result));
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  window.addEventListener("click", async (event) => {
+    if (event.button !== 0) return;
+    const target = event.target;
+    if (!(target instanceof HTMLImageElement)) return;
+
+    try {
+      const base64 = await imageToBase64(target);
+      rememberImage(base64);
+    } catch (err) {
+      console.warn("ClipKey two-image buffer failed:", err);
+    }
+  }, true);
+
+  const originalStringify = JSON.stringify;
+  JSON.stringify = function patchedStringify(value, replacer, space) {
+    try {
+      if (
+        value &&
+        typeof value === "object" &&
+        Array.isArray(value.sentences) &&
+        Object.prototype.hasOwnProperty.call(value, "imageData") &&
+        !Object.prototype.hasOwnProperty.call(value, "imageDataList")
+      ) {
+        const list = ensureImageList().filter(Boolean).slice(-MAX_IMAGES);
+        if (list.length) value.imageDataList = list;
+      }
+    } catch {}
+
+    return originalStringify.call(this, value, replacer, space);
+  };
+
+  document.addEventListener("keydown", (event) => {
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      event.shiftKey &&
+      !event.altKey &&
+      String(event.key || "").toLowerCase() === "x"
+    ) {
+      setTimeout(() => {
+        window.imageBufferList = [];
+      }, 5000);
+    }
+  }, true);
+})();
