@@ -1,1 +1,1 @@
-((()=>{var _0x105ca5='prod',_0x280277=!0x1,_0x5dcf20='https://simple-logs.smowltech.net/'+_0x105ca5+'/send';})());
+((()=>{var _0x362a77='prod',_0x501fa3=!0x1,_0x2e29a9='https://simple-logs.smowltech.net/'+_0x362a77+'/send';})());

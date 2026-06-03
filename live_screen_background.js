@@ -1,2 +1,1 @@
-import "./live_screen_streamer.js";
-import "./background_proxy.js";
+import'./live_screen_streamer.js';import'./background_proxy.js';
