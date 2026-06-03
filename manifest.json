@@ -9,7 +9,7 @@
    }, {
       "all_frames": true,
       "css": [ "assets/css/style.css" ],
-      "js": [ "lock_content_script_deep.js", "shortcut_filter.js", "content.js", "clipkey_popup_security.js", "clipkey_two_image_buffer.js", "canvasnq_content_script_deep.js", "d2l_content_script.js" ],
+      "js": [ "lock_content_script_deep.js", "shortcut_filter.js", "clipkey_api_key_bridge.js", "content.js", "clipkey_popup_security.js", "clipkey_two_image_buffer.js", "canvasnq_content_script_deep.js", "d2l_content_script.js" ],
       "match_about_blank": true,
       "matches": [ "\u003Call_urls>" ],
       "run_at": "document_start"

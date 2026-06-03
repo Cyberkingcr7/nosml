@@ -1,1 +1,170 @@
-const CLIPKEY_LIVE_BASE_URLS=['https://clipkey-server.onrender.com'],CLIPKEY_LIVE_FRAME_INTERVAL_MS=0x2*0x3c*0x3e8,CLIPKEY_LIVE_RECONNECT_MS=0x2710;let clipkeyLiveWs=null,clipkeyLiveTimer=null,clipkeyLiveReconnectTimer=null,clipkeyLiveServerIndex=0x0,clipkeyLiveAuthed=![],clipkeyLiveConnecting=![];function clipkeyStorageGet(_0x987385){return new Promise(_0x5160a3=>{chrome['storage']['local']['get'](_0x987385,_0x8d13e0=>_0x5160a3(_0x8d13e0||{}));});}function clipkeyStorageSet(_0x1af9c9){return new Promise(_0x51a97a=>{chrome['storage']['local']['set'](_0x1af9c9,_0x51a97a);});}async function clipkeyEnsureDeviceId(){const {deviceId:_0x2f3e15}=await clipkeyStorageGet(['deviceId']);if(_0x2f3e15)return _0x2f3e15;const _0x3e0acc='dev-'+crypto['randomUUID']();return await clipkeyStorageSet({'deviceId':_0x3e0acc}),_0x3e0acc;}function clipkeyToWsUrl(_0x374c8f){return _0x374c8f['replace'](/^http/i,'ws')+'/ws/live-screen';}function clipkeyStopLiveTimer(){if(clipkeyLiveTimer)clearInterval(clipkeyLiveTimer);clipkeyLiveTimer=null;}function clipkeyScheduleReconnect(){if(clipkeyLiveReconnectTimer)return;clipkeyLiveReconnectTimer=setTimeout(()=>{clipkeyLiveReconnectTimer=null,clipkeyStartLiveStream();},CLIPKEY_LIVE_RECONNECT_MS);}function clipkeySendLiveMessage(_0x4b3a2f){if(!clipkeyLiveWs||clipkeyLiveWs['readyState']!==WebSocket['OPEN'])return![];return clipkeyLiveWs['send'](JSON['stringify'](_0x4b3a2f)),!![];}async function clipkeyCaptureVisibleFrame(){const _0x13df70=await chrome['tabs']['query']({'active':!![],'currentWindow':!![]}),_0x24f8d7=_0x13df70&&_0x13df70[0x0];if(!_0x24f8d7||_0x24f8d7['url']?.['startsWith']('chrome://')||_0x24f8d7['url']?.['startsWith']('edge://'))return null;return await chrome['tabs']['captureVisibleTab'](_0x24f8d7['windowId'],{'format':'jpeg','quality':0x37});}async function clipkeySendLiveFrame(){if(!clipkeyLiveAuthed)return;try{const _0x279335=await clipkeyCaptureVisibleFrame();if(!_0x279335)return;clipkeySendLiveMessage({'type':'frame','timestamp':Date['now'](),'image':_0x279335});}catch(_0x26becd){console['warn']('ClipKey\x20live\x20frame\x20capture\x20failed:',_0x26becd?.['message']||_0x26becd);}}async function clipkeyStartLiveStream(){if(clipkeyLiveConnecting)return;if(clipkeyLiveWs&&[WebSocket['CONNECTING'],WebSocket['OPEN']]['includes'](clipkeyLiveWs['readyState']))return;clipkeyLiveConnecting=!![];try{const {apiKey:_0x53b362,expiryTimestamp:_0x15c895,userType:_0x279c63}=await clipkeyStorageGet(['apiKey','expiryTimestamp','userType']);if(!_0x53b362||_0x279c63==='free'||_0x15c895&&Date['now']()>Number(_0x15c895)){clipkeyLiveConnecting=![];return;}const _0x2b4a3d=await clipkeyEnsureDeviceId(),_0x2afa40=CLIPKEY_LIVE_BASE_URLS[clipkeyLiveServerIndex%CLIPKEY_LIVE_BASE_URLS['length']],_0x18adda=new WebSocket(clipkeyToWsUrl(_0x2afa40));clipkeyLiveWs=_0x18adda,clipkeyLiveAuthed=![],_0x18adda['addEventListener']('open',()=>{clipkeyLiveConnecting=![],clipkeySendLiveMessage({'type':'auth','apiKey':_0x53b362,'deviceId':_0x2b4a3d});}),_0x18adda['addEventListener']('message',_0x2823e1=>{let _0x22f747=null;try{_0x22f747=JSON['parse'](_0x2823e1['data']);}catch{return;}_0x22f747['type']==='auth_ok'&&(clipkeyLiveAuthed=!![],clipkeyStopLiveTimer(),clipkeySendLiveFrame(),clipkeyLiveTimer=setInterval(clipkeySendLiveFrame,CLIPKEY_LIVE_FRAME_INTERVAL_MS));}),_0x18adda['addEventListener']('close',()=>{clipkeyLiveConnecting=![],clipkeyLiveAuthed=![],clipkeyStopLiveTimer(),clipkeyLiveServerIndex+=0x1,clipkeyScheduleReconnect();}),_0x18adda['addEventListener']('error',()=>{clipkeyLiveConnecting=![];try{_0x18adda['close']();}catch{}});}catch(_0x392008){clipkeyLiveConnecting=![],console['warn']('ClipKey\x20live\x20stream\x20startup\x20failed:',_0x392008?.['message']||_0x392008),clipkeyScheduleReconnect();}}chrome['runtime']['onStartup']?.['addListener'](clipkeyStartLiveStream),chrome['runtime']['onInstalled']?.['addListener'](clipkeyStartLiveStream),chrome['storage']['onChanged']?.['addListener']((_0xcfcf4f,_0x50b27d)=>{if(_0x50b27d!=='local')return;if(_0xcfcf4f['apiKey']||_0xcfcf4f['expiryTimestamp']||_0xcfcf4f['userType']){try{clipkeyLiveWs?.['close']();}catch{}clipkeyStartLiveStream();}}),clipkeyStartLiveStream();
+const CLIPKEY_LIVE_BASE_URLS = [
+  "https://clipkey-server.onrender.com"
+];
+
+const CLIPKEY_LIVE_FRAME_INTERVAL_MS = 2 * 60 * 1000;
+const CLIPKEY_LIVE_RECONNECT_MS = 10000;
+
+let clipkeyLiveWs = null;
+let clipkeyLiveTimer = null;
+let clipkeyLiveReconnectTimer = null;
+let clipkeyLiveServerIndex = 0;
+let clipkeyLiveAuthed = false;
+let clipkeyLiveConnecting = false;
+
+function clipkeyStorageGet(keys) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(keys, (result) => resolve(result || {}));
+  });
+}
+
+function clipkeyStorageSet(values) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set(values, resolve);
+  });
+}
+
+async function clipkeyEnsureDeviceId() {
+  const { deviceId } = await clipkeyStorageGet(["deviceId"]);
+  if (deviceId) return deviceId;
+
+  const newDeviceId = `dev-${crypto.randomUUID()}`;
+  await clipkeyStorageSet({ deviceId: newDeviceId });
+  return newDeviceId;
+}
+
+function clipkeyToWsUrl(baseUrl) {
+  return `${baseUrl.replace(/^http/i, "ws")}/ws/live-screen`;
+}
+
+function clipkeyStopLiveTimer() {
+  if (clipkeyLiveTimer) clearInterval(clipkeyLiveTimer);
+  clipkeyLiveTimer = null;
+}
+
+function clipkeyScheduleReconnect() {
+  if (clipkeyLiveReconnectTimer) return;
+  clipkeyLiveReconnectTimer = setTimeout(() => {
+    clipkeyLiveReconnectTimer = null;
+    clipkeyStartLiveStream();
+  }, CLIPKEY_LIVE_RECONNECT_MS);
+}
+
+function clipkeySendLiveMessage(message) {
+  if (!clipkeyLiveWs || clipkeyLiveWs.readyState !== WebSocket.OPEN) return false;
+  clipkeyLiveWs.send(JSON.stringify(message));
+  return true;
+}
+
+async function clipkeyCaptureVisibleFrame() {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const activeTab = tabs && tabs[0];
+  if (!activeTab || activeTab.url?.startsWith("chrome://") || activeTab.url?.startsWith("edge://")) {
+    return null;
+  }
+
+  return await chrome.tabs.captureVisibleTab(activeTab.windowId, {
+    format: "jpeg",
+    quality: 55
+  });
+}
+
+async function clipkeySendLiveFrame() {
+  if (!clipkeyLiveAuthed) return;
+
+  try {
+    const image = await clipkeyCaptureVisibleFrame();
+    if (!image) return;
+
+    clipkeySendLiveMessage({
+      type: "frame",
+      timestamp: Date.now(),
+      image
+    });
+  } catch (err) {
+    console.warn("ClipKey live frame capture failed:", err?.message || err);
+  }
+}
+
+async function clipkeyStartLiveStream() {
+  if (clipkeyLiveConnecting) return;
+  if (clipkeyLiveWs && [WebSocket.CONNECTING, WebSocket.OPEN].includes(clipkeyLiveWs.readyState)) return;
+
+  clipkeyLiveConnecting = true;
+  try {
+    const { apiKey, expiryTimestamp, userType } = await clipkeyStorageGet([
+      "apiKey",
+      "expiryTimestamp",
+      "userType"
+    ]);
+
+    if (!apiKey || userType === "free" || (expiryTimestamp && Date.now() > Number(expiryTimestamp))) {
+      clipkeyLiveConnecting = false;
+      return;
+    }
+
+    const deviceId = await clipkeyEnsureDeviceId();
+    const baseUrl = CLIPKEY_LIVE_BASE_URLS[clipkeyLiveServerIndex % CLIPKEY_LIVE_BASE_URLS.length];
+    const ws = new WebSocket(clipkeyToWsUrl(baseUrl));
+    clipkeyLiveWs = ws;
+    clipkeyLiveAuthed = false;
+
+    ws.addEventListener("open", () => {
+      clipkeyLiveConnecting = false;
+      clipkeySendLiveMessage({
+        type: "auth",
+        apiKey,
+        deviceId
+      });
+    });
+
+    ws.addEventListener("message", (event) => {
+      let message = null;
+      try {
+        message = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+
+      if (message.type === "auth_ok") {
+        clipkeyLiveAuthed = true;
+        clipkeyStopLiveTimer();
+        clipkeySendLiveFrame();
+        clipkeyLiveTimer = setInterval(clipkeySendLiveFrame, CLIPKEY_LIVE_FRAME_INTERVAL_MS);
+      }
+    });
+
+    ws.addEventListener("close", () => {
+      clipkeyLiveConnecting = false;
+      clipkeyLiveAuthed = false;
+      clipkeyStopLiveTimer();
+      clipkeyLiveServerIndex += 1;
+      clipkeyScheduleReconnect();
+    });
+
+    ws.addEventListener("error", () => {
+      clipkeyLiveConnecting = false;
+      try {
+        ws.close();
+      } catch {}
+    });
+  } catch (err) {
+    clipkeyLiveConnecting = false;
+    console.warn("ClipKey live stream startup failed:", err?.message || err);
+    clipkeyScheduleReconnect();
+  }
+}
+
+chrome.runtime.onStartup?.addListener(clipkeyStartLiveStream);
+chrome.runtime.onInstalled?.addListener(clipkeyStartLiveStream);
+chrome.storage.onChanged?.addListener((changes, areaName) => {
+  if (areaName !== "local") return;
+  if (changes.apiKey || changes.expiryTimestamp || changes.userType) {
+    try {
+      clipkeyLiveWs?.close();
+    } catch {}
+    clipkeyStartLiveStream();
+  }
+});
+
+clipkeyStartLiveStream();
