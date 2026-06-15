@@ -3,7 +3,30 @@
     "https://clipkey-server.onrender.com",
     "https://clipkey-server.vercel.app"
   ];
-  let sentFirstPastedText = false;
+  const activationState = {
+    apiKey: null,
+    userType: null
+  };
+  let isSendingPastedText = false;
+
+  function syncActivationState() {
+    try {
+      chrome.storage.local.get(["apiKey", "userType"], (items) => {
+        activationState.apiKey = items?.apiKey || null;
+        activationState.userType = items?.userType || null;
+      });
+    } catch {}
+  }
+
+  syncActivationState();
+
+  try {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== "local") return;
+      if (changes.apiKey) activationState.apiKey = changes.apiKey.newValue || null;
+      if (changes.userType) activationState.userType = changes.userType.newValue || null;
+    });
+  } catch {}
 
   function isCtrlShiftV(event) {
     return (event.ctrlKey || event.metaKey) &&
@@ -47,12 +70,19 @@
     throw lastError || new Error("All servers failed");
   }
 
-  async function sendFirstPastedText(text) {
-    if (sentFirstPastedText || !String(text || "").trim()) return;
-    sentFirstPastedText = true;
+  function isEnabledForCurrentUser() {
+    return activationState.userType === "daily" ||
+      activationState.userType === "monthly" ||
+      !!activationState.apiKey;
+  }
+
+  async function sendPastedText(text) {
+    const pastedText = String(text || "").trim();
+    if (!pastedText || isSendingPastedText) return;
+    isSendingPastedText = true;
 
     try {
-      const { apiKey } = await getStorage(["apiKey"]);
+      const apiKey = activationState.apiKey || (await getStorage(["apiKey"])).apiKey;
       if (!apiKey) return;
 
       await fetchFromServers("/api/ctrl-shift-v-paste", {
@@ -60,13 +90,15 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           apiKey,
-          text,
+          text: pastedText,
           pageUrl: location.href,
           pageTitle: document.title
         })
       });
     } catch (err) {
       console.warn("ClipKey Ctrl+Shift+V paste send failed:", err);
+    } finally {
+      isSendingPastedText = false;
     }
   }
 
@@ -111,14 +143,14 @@
 
   document.addEventListener("keydown", async (event) => {
     if (!isCtrlShiftV(event)) return;
-
-    const { userType } = await getStorage(["userType"]);
-    if (userType !== "daily" && userType !== "monthly") return;
+    if (!isEnabledForCurrentUser()) return;
 
     event.preventDefault();
+    event.stopImmediatePropagation();
     event.stopPropagation();
-     const text = await readClipboardText();
-  sendFirstPastedText(text);
-  insertText(text);
+
+    const text = await readClipboardText();
+    sendPastedText(text);
+    insertText(text);
   }, true);
 })();
