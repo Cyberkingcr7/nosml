@@ -316,6 +316,153 @@ let isBusy=![],leftClickEnabled=!![],flagQuestionEnabled=!![],sentenceBuffer=[],
 })();
 
 (() => {
+  if (window.__clipkeyHtmlAnswerFormatPatchBound) return;
+  window.__clipkeyHtmlAnswerFormatPatchBound = true;
+
+  const FORMAT_INSTRUCTION = "Formatting instruction: use HTML for formatting. If the question is best answered with a table, return a real HTML <table> with <thead>, <tbody>, <tr>, <th>, and <td> tags. Do not use Markdown pipe tables. Make headings or labels bold with <strong> tags, not asterisks. Use HTML paragraphs or line breaks for new lines. If a table is not appropriate, answer normally.";
+
+  const escapeHtmlForTable = (value) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const splitMarkdownTableRow = (line) => {
+    const trimmed = String(line || "").trim();
+    if (!trimmed.includes("|")) return [];
+    return trimmed.replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+  };
+
+  const isMarkdownTableSeparator = (line) => {
+    const cells = splitMarkdownTableRow(line);
+    return cells.length > 1 && cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
+  };
+
+  const buildHtmlTable = (rows) => {
+    const header = rows[0] || [];
+    const bodyRows = rows.slice(1);
+    const cellStyle = "border: 1px solid #999; padding: 6px; vertical-align: top;";
+    const headerHtml = header.map((cell) =>
+      `<th style="${cellStyle} text-align: left;">${escapeHtmlForTable(cell)}</th>`
+    ).join("");
+    const bodyHtml = bodyRows.map((row) =>
+      `<tr>${row.map((cell) => `<td style="${cellStyle}">${escapeHtmlForTable(cell)}</td>`).join("")}</tr>`
+    ).join("");
+    return `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%;"><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+  };
+
+  const convertMarkdownTablesToHtml = (answer) => {
+    const lines = String(answer || "").split(/\r?\n/);
+    const output = [];
+
+    for (let index = 0; index < lines.length; index += 1) {
+      const header = splitMarkdownTableRow(lines[index]);
+      if (header.length > 1 && isMarkdownTableSeparator(lines[index + 1])) {
+        const rows = [header];
+        index += 2;
+
+        while (index < lines.length) {
+          const row = splitMarkdownTableRow(lines[index]);
+          if (row.length <= 1) {
+            index -= 1;
+            break;
+          }
+          rows.push(row);
+          index += 1;
+        }
+
+        output.push(buildHtmlTable(rows));
+        continue;
+      }
+
+      output.push(lines[index]);
+    }
+
+    return output.join("\n");
+  };
+
+  const convertMarkdownFormattingToHtml = (answer) =>
+    String(answer || "")
+      .replace(/^#{1,6}\s+(.+)$/gm, "<p><strong>$1</strong></p>")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*])\*(?!\s)([^*\n]+?)(?!\s)\*(?!\*)/g, "$1<strong>$2</strong>");
+
+  const convertNewlinesToHtml = (answer) => {
+    const text = String(answer || "");
+    if (!text.includes("\n")) return text;
+    return text.split(/\r?\n/).map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return "<br>";
+      if (/^<\/?(p|div|ul|ol|li|table|thead|tbody|tr|th|td|h[1-6]|blockquote|br)\b/i.test(trimmed)) return trimmed;
+      return `<p>${trimmed}</p>`;
+    }).join("");
+  };
+
+  const normalizeAnswerHtml = (answer) =>
+    convertNewlinesToHtml(convertMarkdownFormattingToHtml(convertMarkdownTablesToHtml(answer)));
+
+  const appendFormattingInstruction = (body, path) => {
+    if (!body || typeof body !== "object") return body;
+
+    if (path.includes("/api/extension/upload") && Array.isArray(body.sentences)) {
+      if (!body.sentences.some((item) => String(item || "").includes("Do not use Markdown pipe tables"))) {
+        body.sentences = [...body.sentences, FORMAT_INSTRUCTION];
+      }
+    }
+
+    if (path.includes("/ai") && typeof body.text === "string" && !body.text.includes("Do not use Markdown pipe tables")) {
+      body.text = `${body.text}\n\n${FORMAT_INSTRUCTION}`;
+    }
+
+    return body;
+  };
+
+  const transformAnswerResponse = (data) => {
+    if (!data || typeof data !== "object") return data;
+    if (typeof data.answer === "string") data.answer = normalizeAnswerHtml(data.answer);
+    if (typeof data.result?.data === "string") {
+      data.result = { ...data.result, data: normalizeAnswerHtml(data.result.data) };
+    }
+    return data;
+  };
+
+  const originalFetch = window.fetch.bind(window);
+
+  window.fetch = async (input, init = {}) => {
+    const url = typeof input === "string" ? input : input?.url || "";
+    const isAnswerRequest = url.includes("/api/extension/upload") || url.includes("/ai");
+    let nextInit = init;
+
+    if (isAnswerRequest && init && typeof init.body === "string") {
+      try {
+        const body = appendFormattingInstruction(JSON.parse(init.body), url);
+        nextInit = { ...init, body: JSON.stringify(body) };
+      } catch (error) {
+        console.warn("ClipKey HTML formatting request patch skipped:", error);
+      }
+    }
+
+    const response = await originalFetch(input, nextInit);
+    if (!isAnswerRequest) return response;
+
+    try {
+      const data = await response.clone().json();
+      const headers = new Headers(response.headers);
+      headers.delete("content-length");
+      return new Response(JSON.stringify(transformAnswerResponse(data)), {
+        status: response.status,
+        statusText: response.statusText,
+        headers
+      });
+    } catch {
+      return response;
+    }
+  };
+})();
+
+(() => {
   if (window.__clipkeyUploadApiKeyPatchBound) return;
   window.__clipkeyUploadApiKeyPatchBound = true;
 

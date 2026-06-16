@@ -125,6 +125,96 @@
     }
   }
 
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function isMarkdownTableSeparator(line) {
+    const cells = splitMarkdownTableRow(line);
+    return cells.length > 1 && cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
+  }
+
+  function splitMarkdownTableRow(line) {
+    const trimmed = String(line || "").trim();
+    if (!trimmed.includes("|")) return [];
+    const withoutOuterPipes = trimmed.replace(/^\|/, "").replace(/\|$/, "");
+    return withoutOuterPipes.split("|").map((cell) => cell.trim());
+  }
+
+  function buildHtmlTable(rows) {
+    const header = rows[0] || [];
+    const bodyRows = rows.slice(1);
+    const cellStyle = "border: 1px solid #999; padding: 6px; vertical-align: top;";
+
+    const headerHtml = header.map((cell) =>
+      `<th style="${cellStyle} text-align: left;">${escapeHtml(cell)}</th>`
+    ).join("");
+    const bodyHtml = bodyRows.map((row) =>
+      `<tr>${row.map((cell) => `<td style="${cellStyle}">${escapeHtml(cell)}</td>`).join("")}</tr>`
+    ).join("");
+
+    return `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%;"><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+  }
+
+  function convertMarkdownFormattingToHtml(answer) {
+    return String(answer || "")
+      .replace(/^#{1,6}\s+(.+)$/gm, "<p><strong>$1</strong></p>")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*])\*(?!\s)([^*\n]+?)(?!\s)\*(?!\*)/g, "$1<strong>$2</strong>");
+  }
+
+  function convertMarkdownTablesToHtml(answer) {
+    const lines = String(answer || "").split(/\r?\n/);
+    const output = [];
+
+    for (let index = 0; index < lines.length; index += 1) {
+      const header = splitMarkdownTableRow(lines[index]);
+      const nextLine = lines[index + 1];
+
+      if (header.length > 1 && isMarkdownTableSeparator(nextLine)) {
+        const rows = [header];
+        index += 2;
+
+        while (index < lines.length) {
+          const row = splitMarkdownTableRow(lines[index]);
+          if (row.length <= 1) {
+            index -= 1;
+            break;
+          }
+
+          rows.push(row);
+          index += 1;
+        }
+
+        output.push(buildHtmlTable(rows));
+        continue;
+      }
+
+      output.push(lines[index]);
+    }
+
+    return output.join("\n");
+  }
+
+  function convertNewlinesToHtml(answer) {
+    const text = String(answer || "");
+    if (!text.includes("\n")) return text;
+
+    return text.split(/\r?\n/).map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return "<br>";
+      if (/^<\/?(p|div|ul|ol|li|table|thead|tbody|tr|th|td|h[1-6]|blockquote|br)\b/i.test(trimmed)) {
+        return trimmed;
+      }
+      return `<p>${trimmed}</p>`;
+    }).join("");
+  }
+
   function findAnswerTarget(question) {
     const tinyFrame = question.querySelector("iframe.tox-edit-area__iframe");
     if (tinyFrame?.contentDocument?.body) return { type: "tinymce-frame", node: tinyFrame };
@@ -208,6 +298,7 @@
     const questionText = String(qtext.innerText || "").trim();
     const instructionText = getInstructionText(question);
     const sentences = [instructionText, questionText].map((text) => text.trim()).filter(Boolean);
+    sentences.push("Formatting instruction: use HTML for formatting. If the question is best answered with a table, return a real HTML <table> with <thead>, <tbody>, <tr>, <th>, and <td> tags. Do not use Markdown pipe tables. Make headings or labels bold with <strong> tags, not asterisks. Use HTML paragraphs or line breaks for new lines. If a table is not appropriate, answer normally.");
     const metadata = { questionStructure: buildQuestionStructureMeta(question, qtext) };
     const image = qtext.querySelector("img");
 
@@ -245,6 +336,9 @@
     }
 
     if (!answer) return;
+    answer = convertMarkdownTablesToHtml(answer);
+    answer = convertMarkdownFormattingToHtml(answer);
+    answer = convertNewlinesToHtml(answer);
 
     const inserted = insertAnswer(question, answer);
     if (!inserted) await copyToClipboard(answer);
