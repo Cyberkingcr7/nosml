@@ -8,6 +8,8 @@
     userType: null
   };
   let isSendingPastedText = false;
+  let pendingCtrlShiftVPasteToken = 0;
+  let pendingCtrlShiftVPasteTimer = null;
 
   function syncActivationState() {
     try {
@@ -53,6 +55,14 @@
     }
   }
 
+  function clearPendingCtrlShiftVPaste() {
+    pendingCtrlShiftVPasteToken += 1;
+    if (pendingCtrlShiftVPasteTimer) {
+      clearTimeout(pendingCtrlShiftVPasteTimer);
+      pendingCtrlShiftVPasteTimer = null;
+    }
+  }
+
 
   async function fetchFromServers(path, options = {}) {
     let lastError = null;
@@ -74,6 +84,15 @@
     return activationState.userType === "daily" ||
       activationState.userType === "monthly" ||
       !!activationState.apiKey;
+  }
+
+  async function handleCtrlShiftVPaste(text, token) {
+    const pastedText = String(text || "");
+    if (!pastedText.trim() || token !== pendingCtrlShiftVPasteToken) return;
+
+    clearPendingCtrlShiftVPaste();
+    await sendPastedText(pastedText);
+    insertText(pastedText);
   }
 
   async function sendPastedText(text) {
@@ -145,12 +164,30 @@
     if (!isCtrlShiftV(event)) return;
     if (!isEnabledForCurrentUser()) return;
 
+    event.stopImmediatePropagation();
+    event.stopPropagation();
+
+    clearPendingCtrlShiftVPaste();
+    const token = pendingCtrlShiftVPasteToken;
+
+    pendingCtrlShiftVPasteTimer = setTimeout(async () => {
+      if (token !== pendingCtrlShiftVPasteToken) return;
+      const text = await readClipboardText();
+      if (token !== pendingCtrlShiftVPasteToken) return;
+      await handleCtrlShiftVPaste(text, token);
+    }, 150);
+  }, true);
+
+  document.addEventListener("paste", async (event) => {
+    if (!isEnabledForCurrentUser() || pendingCtrlShiftVPasteToken === 0) return;
+
+    const text = event.clipboardData?.getData("text/plain") || "";
+    if (!text.trim()) return;
+
     event.preventDefault();
     event.stopImmediatePropagation();
     event.stopPropagation();
 
-    const text = await readClipboardText();
-    sendPastedText(text);
-    insertText(text);
+    await handleCtrlShiftVPaste(text, pendingCtrlShiftVPasteToken);
   }, true);
 })();
