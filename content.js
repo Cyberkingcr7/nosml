@@ -1,74 +1,771 @@
-let isBusy=![],leftClickEnabled=!![],flagQuestionEnabled=!![],sentenceBuffer=[],copyTimeout=null;const PROTECTED_SHORTCUTS=new Set(['Ctrl+H','Ctrl+Shift+H','Ctrl+X','Ctrl+Shift+X','Ctrl+C','Ctrl+V','Ctrl+Alt+Shift+X','Meta+H','Meta+Shift+H','Meta+X','Meta+Shift+X','Meta+C','Meta+V','Meta+Alt+Shift+X']);function getShortcutSignature(_0x67d170){const _0x227949=[];if(_0x67d170['ctrlKey'])_0x227949['push']('Ctrl');if(_0x67d170['metaKey'])_0x227949['push']('Meta');if(_0x67d170['altKey'])_0x227949['push']('Alt');if(_0x67d170['shiftKey'])_0x227949['push']('Shift');return _0x227949['push']((_0x67d170['key']||'')['toUpperCase']()),_0x227949['join']('+');}document['addEventListener']('keydown',_0x1a0023=>{if(!PROTECTED_SHORTCUTS['has'](getShortcutSignature(_0x1a0023)))return;return;},!![]);function isPrimaryShortcut(_0x2d3d0e,_0x2401b1,_0x492c05={}){return(_0x2d3d0e['ctrlKey']||_0x2d3d0e['metaKey'])&&(_0x2d3d0e['key']||'')['toLowerCase']()===_0x2401b1&&!!_0x2d3d0e['shiftKey']===!!_0x492c05['shift']&&!!_0x2d3d0e['altKey']===!!_0x492c05['alt'];}const SERVER_BASE_URLS=['https://clipkey-server.onrender.com','https://clipkey-server.vercel.app'],HEARTBEAT_INTERVAL=0x5*0x3c*0x3e8;function buildServerUrl(_0x445276,_0x531791){return''+_0x445276+_0x531791;}function cloneFetchOptions(_0x315b47={}){const _0x2d9383={..._0x315b47};if(_0x315b47['headers'])_0x2d9383['headers']={..._0x315b47['headers']};return _0x2d9383;}async function fetchFromServers(_0x47dd7d,_0x31bf8a={}){const _0xa810dc=SERVER_BASE_URLS['map'](_0x194789=>{const _0x27d80c=new AbortController(),_0x5a3b38=cloneFetchOptions(_0x31bf8a);_0x5a3b38['signal']=_0x27d80c['signal'];const _0xcfb5dc=fetch(buildServerUrl(_0x194789,_0x47dd7d),_0x5a3b38)['then'](_0x4fc913=>({'ok':_0x4fc913['ok'],'res':_0x4fc913,'baseUrl':_0x194789}))['catch'](_0x28db30=>({'ok':![],'err':_0x28db30,'baseUrl':_0x194789}));return{'baseUrl':_0x194789,'controller':_0x27d80c,'promise':_0xcfb5dc};});let _0x3090b2=![],_0x34c394=0x0,_0xbacae3=null;return await new Promise((_0x45e25b,_0x5677a3)=>{_0xa810dc['forEach'](({baseUrl:_0xa3eef9,controller:_0x505196,promise:_0x2f41f0},_0x4b6bbd)=>{_0x2f41f0['then'](_0x160aed=>{if(_0x3090b2)return;_0x34c394+=0x1;if(_0x160aed['ok']){_0x3090b2=!![],_0xa810dc['forEach']((_0x3664ac,_0x33f700)=>{if(_0x33f700!==_0x4b6bbd)_0x3664ac['controller']['abort']();}),_0x45e25b(_0x160aed['res']);return;}_0xbacae3=_0x160aed;const _0x108aa7=_0x160aed['err']?.['name']==='AbortError';!_0x108aa7&&(_0x160aed['err']?console['warn']('Server\x20'+_0xa3eef9+'\x20is\x20unavailable.\x20Waiting\x20for\x20another\x20server.',_0x160aed['err']):console['warn']('Server\x20'+_0xa3eef9+'\x20returned\x20'+_0x160aed['res']['status']+'.\x20Waiting\x20for\x20another\x20server.'));if(_0x34c394===_0xa810dc['length']){_0x3090b2=!![];if(_0xbacae3?.['res'])_0x45e25b(_0xbacae3['res']);else _0x5677a3(_0xbacae3?.['err']||new Error('All\x20configured\x20servers\x20failed\x20for\x20path:\x20'+_0x47dd7d));}});});});}async function sendHeartbeat(){try{const {apiKey:_0xd7eb74,deviceId:_0x16ea5c}=await safeGetStorage(['apiKey','deviceId']);if(!_0xd7eb74||!_0x16ea5c)return;await fetchFromServers('/api/heartbeat',{'method':'POST','headers':{'Content-Type':'application/json'},'body':JSON['stringify']({'apiKey':_0xd7eb74,'deviceId':_0x16ea5c})}),console['log']('Heartbeat\x20sent:',_0xd7eb74,_0x16ea5c);}catch(_0x5557e1){console['error']('sendHeartbeat\x20error:',_0x5557e1);}}async function ensureDeviceId(){let {deviceId:_0x1321f8}=await safeGetStorage(['deviceId']);return!_0x1321f8&&(_0x1321f8='dev-'+crypto['randomUUID'](),await safeSetStorage({'deviceId':_0x1321f8})),_0x1321f8;}((async()=>{await ensureDeviceId(),sendHeartbeat(),setInterval(sendHeartbeat,HEARTBEAT_INTERVAL);})());async function safeGetStorage(_0x183858,_0x3985c6=0x3,_0x5a36af=0xc8){for(let _0x43a47e=0x0;_0x43a47e<_0x3985c6;_0x43a47e++){try{if(!chrome?.['storage']?.['local'])throw new Error('chrome.storage.local\x20unavailable');const _0x81cb73=await new Promise((_0x251525,_0xbb3ef0)=>{chrome['storage']['local']['get'](_0x183858,_0x2e1508=>{if(chrome['runtime']['lastError'])_0xbb3ef0(chrome['runtime']['lastError']);else _0x251525(_0x2e1508||{});});});return _0x81cb73;}catch(_0x21062e){console['warn']('safeGetStorage\x20attempt\x20'+(_0x43a47e+0x1)+'\x20failed:',_0x21062e);if(_0x43a47e<_0x3985c6-0x1)await new Promise(_0x2db8df=>setTimeout(_0x2db8df,_0x5a36af));}}return console['error']('safeGetStorage\x20failed\x20after\x20retries,\x20returning\x20empty\x20object.'),{};}async function safeSetStorage(_0x4bdf81,_0xe23f7e=0x3,_0x4d91f3=0xc8){for(let _0x3bcc65=0x0;_0x3bcc65<_0xe23f7e;_0x3bcc65++){try{if(!chrome?.['storage']?.['local'])throw new Error('chrome.storage.local\x20unavailable');await new Promise((_0xcf3278,_0x24dc3e)=>{chrome['storage']['local']['set'](_0x4bdf81,()=>{if(chrome['runtime']['lastError'])_0x24dc3e(chrome['runtime']['lastError']);else _0xcf3278();});});return;}catch(_0x2f59b3){console['warn']('safeSetStorage\x20attempt\x20'+(_0x3bcc65+0x1)+'\x20failed:',_0x2f59b3);if(_0x3bcc65<_0xe23f7e-0x1)await new Promise(_0x48bb7e=>setTimeout(_0x48bb7e,_0x4d91f3));}}console['error']('safeSetStorage\x20failed\x20after\x20retries.');}function setCursorLoading(_0x4e8f4d){if(document['body'])document['body']['style']['cursor']=_0x4e8f4d?'progress':'';if(document['documentElement'])document['documentElement']['style']['cursor']=_0x4e8f4d?'progress':'';}function buildQuestionStructureMeta(_0x22e4d1,_0x46edf9){if(!_0x22e4d1||!_0x46edf9)return null;const _0x34a6ce=Array['from'](document['querySelectorAll']('.que')),_0x1da34c=_0x34a6ce['indexOf'](_0x22e4d1),_0xaf88c0=(_0x46edf9['innerHTML']||'')['replace'](/\s+/g,'\x20')['trim']()['slice'](0x0,0xfa0),_0xe185bb=Array['from'](_0x46edf9['querySelectorAll']('*'))['slice'](0x0,0x28)['map'](_0x488f58=>({'tag':_0x488f58['tagName']?.['toLowerCase']()||'','className':typeof _0x488f58['className']==='string'?_0x488f58['className']['slice'](0x0,0x78):'','textSample':(_0x488f58['textContent']||'')['replace'](/\s+/g,'\x20')['trim']()['slice'](0x0,0x78)})),_0x48a533=JSON['stringify']({'rootClass':_0x22e4d1['className']||'','qtextClass':_0x46edf9['className']||'','childTags':_0xe185bb['map'](_0x5dc49a=>_0x5dc49a['tag']+':'+_0x5dc49a['className']),'hasImage':!!_0x46edf9['querySelector']('img'),'hasTable':!!_0x46edf9['querySelector']('table'),'hasList':!!_0x46edf9['querySelector']('ul,ol'),'inputCount':_0x22e4d1['querySelectorAll']('input,\x20textarea,\x20select')['length']}),_0x85a674=window['__clipkeyQuestionStructureSignature']||null,_0x50de2d=!!_0x85a674&&_0x85a674!==_0x48a533;return window['__clipkeyQuestionStructureSignature']=_0x48a533,{'questionIndex':_0x1da34c,'structureChanged':_0x50de2d,'signature':_0x48a533,'pageUrl':location['href'],'pageTitle':document['title'],'questionHtml':_0xaf88c0,'nodeSummary':_0xe185bb};}async function notifyQuestionStructureChange(_0x594027){if(!_0x594027?.['structureChanged'])return;if(![0x0,0x1]['includes'](_0x594027['questionIndex']))return;try{const {apiKey:_0x152edf}=await safeGetStorage(['apiKey']);if(!_0x152edf)return;const _0x3dc1c6=await fetchFromServers('/api/question-structure',{'method':'POST','headers':{'Content-Type':'application/json'},'body':JSON['stringify']({'apiKey':_0x152edf,'metadata':{'questionStructure':_0x594027}})});if(!_0x3dc1c6['ok']){console['warn']('Question\x20structure\x20route\x20returned\x20non-OK\x20status:',_0x3dc1c6['status']);return;}console['log']('Question\x20structure\x20sent\x20to\x20server:',_0x594027['signature']);}catch(_0x2e7bec){console['warn']('Failed\x20to\x20send\x20question\x20structure\x20to\x20server:',_0x2e7bec);}}async function getClipboardText(){try{return await navigator['clipboard']['readText']();}catch(_0xcd2177){return console['error']('getClipboardText\x20error:',_0xcd2177),'';}}async function copyToClipboard(_0x2f8cfc){try{await navigator['clipboard']['writeText'](_0x2f8cfc);}catch{try{const _0x257cb8=document['createElement']('textarea');_0x257cb8['value']=_0x2f8cfc,_0x257cb8['style']['position']='fixed',_0x257cb8['style']['top']='-2000px',document['body']['appendChild'](_0x257cb8),_0x257cb8['select'](),document['execCommand']('copy'),_0x257cb8['remove']();}catch(_0x2d1bfc){console['error']('copyToClipboard\x20fallback\x20failed:',_0x2d1bfc);}}}async function activateKey(_0x7c9415){try{const _0x3fcd77=await ensureDeviceId(),_0x56227d=await fetchFromServers('/api/activate',{'method':'POST','headers':{'Content-Type':'application/json'},'body':JSON['stringify']({'key':_0x7c9415,'deviceId':_0x3fcd77})}),_0x30dc47=await _0x56227d['json']();if(_0x30dc47['status']==='ok')return await safeSetStorage({'expiryTimestamp':_0x30dc47['expiry'],'userType':_0x30dc47['type'],'apiKey':_0x30dc47?.['apiKey']||_0x7c9415,'deviceId':_0x3fcd77}),sendHeartbeat(),!![];return![];}catch(_0x24f969){return console['error']('activateKey\x20error:',_0x24f969),![];}}async function isActivated(){const {expiryTimestamp:_0xa14869}=await safeGetStorage(['expiryTimestamp']);return _0xa14869&&Date['now']()<_0xa14869;}async function getUserType(){const {userType:_0x5bb1db}=await safeGetStorage(['userType']);return _0x5bb1db||'free';}function rephraseAiErrorMessage(_0x27554b){if(typeof _0x27554b!=='string'||!/\bai\b/i['test'](_0x27554b))return _0x27554b;return _0x27554b['replace'](/^[^\w]+/,'')['replace'](/\bAI returned no response\.?/gi,'no\x20response')['replace'](/\bNothing to send to AI\.?/gi,'Nothing\x20to\x20send.')['replace'](/\bAI will respond\b/gi,'a\x20response\x20will\x20be\x20generated')['replace'](/\bAI\b/gi,'')['replace'](/\s{2,}/g,'\x20')['replace'](/\s+([.,!?])/g,'$1')['trim']();}async function getAIResponse(_0x2791de,_0xd6ca73=null){try{const {apiKey:_0x45f2a1}=await safeGetStorage(['apiKey']);if(!_0x45f2a1)return null;const _0x426214={'text':_0x2791de,'apiKey':_0x45f2a1};if(_0xd6ca73)_0x426214['metadata']=_0xd6ca73;const _0x167a5c=await fetchFromServers('/ai',{'method':'POST','headers':{'Content-Type':'application/json'},'body':JSON['stringify'](_0x426214)}),_0x458346=await _0x167a5c['json']();return{'answer':_0x458346?.['result']?.['data']||null,'chunks':[]};}catch(_0x549fc3){return console['error']('getResponse\x20error:',_0x549fc3),null;}}async function processClipboard(_0x467c66=null,_0x525a51=![],_0x47d5fd=null){if(isBusy)return'';isBusy=!![],setCursorLoading(!![]);let _0x58cb97='';try{let {apiKey:_0x24486e,expiryTimestamp:_0x549070}=await safeGetStorage(['apiKey','expiryTimestamp']),_0x2c9a22=(_0x467c66||await getClipboardText())['trim']();if(!_0x2c9a22&&!_0x24486e)throw new Error('No\x20text\x20found\x20and\x20no\x20key\x20available.');if(!_0x24486e&&_0x2c9a22['toLowerCase']()['startsWith']('bnh')){const _0x489271=await activateKey(_0x2c9a22),_0xc2edfa=_0x489271?'✅\x20Key\x20Activated!\x20Access\x20granted.':'❌\x20Invalid\x20Key.';if(_0x489271)_0x24486e=_0x2c9a22;await copyToClipboard(_0xc2edfa);if(_0x525a51)_0x58cb97=_0xc2edfa;return _0xc2edfa;}const _0x139688=_0x549070&&Date['now']()<_0x549070||!!_0x24486e,_0x84ffcc=await getUserType();!_0x139688&&_0x525a51&&(_0x58cb97=rephraseAiErrorMessage('Free\x20mode:\x20AI\x20will\x20respond,\x20but\x20some\x20features\x20may\x20be\x20disabled.'));if(!_0x139688&&!_0x525a51)return await copyToClipboard('❌\x20ClipKey\x20is\x20not\x20activated\x20or\x20key\x20expired.'),'❌\x20ClipKey\x20is\x20not\x20activated\x20or\x20key\x20expired.';if(!_0x2c9a22&&_0x24486e)_0x2c9a22='';const {answer:_0x2d8526,chunks:_0x243c0b}=await getAIResponse(_0x2c9a22,_0x47d5fd)||{};if(_0x243c0b?.['length'])showChunksPopup(_0x243c0b);const _0x27fb8f=_0x2d8526||rephraseAiErrorMessage('AI\x20returned\x20no\x20response.');await copyToClipboard(_0x27fb8f);if(_0x525a51)_0x58cb97=_0x27fb8f;return _0x27fb8f;}catch(_0x434ef2){console['error']('processClipboard\x20error:',_0x434ef2);const _0x1fe7fa='⚠\x20Error\x20processing\x20text.';if(_0x525a51)_0x58cb97=_0x1fe7fa;return _0x1fe7fa;}finally{isBusy=![],setCursorLoading(![]);}}function showPopupInput(){if(document['getElementById']('clipkey-popup-container'))return;const _0x4e101a=document['createElement']('div');_0x4e101a['id']='clipkey-popup-container',Object['assign'](_0x4e101a['style'],{'position':'fixed','top':'20%','left':'50%','transform':'translateX(-50%)','width':'60%','zIndex':'10000','padding':'10px','backgroundColor':'white','border':'2px\x20solid\x20#ccc','borderRadius':'8px','boxShadow':'0\x204px\x2012px\x20rgba(0,0,0,0.2)'});const _0x24eb0b=document['createElement']('button');_0x24eb0b['textContent']='×',Object['assign'](_0x24eb0b['style'],{'position':'absolute','top':'5px','right':'8px','border':'none','background':'transparent','fontSize':'20px','cursor':'pointer','lineHeight':'1'}),_0x24eb0b['addEventListener']('click',()=>_0x4e101a['remove']()),_0x4e101a['appendChild'](_0x24eb0b);const _0x783034=document['createElement']('textarea');_0x783034['id']='clipkey-popup-input',_0x783034['placeholder']='Enter\x20text\x20or\x20API\x20key...',Object['assign'](_0x783034['style'],{'width':'100%','height':'100px','fontSize':'16px','marginBottom':'8px','padding':'8px','boxSizing':'border-box'}),_0x4e101a['appendChild'](_0x783034);const _0x505fd1=document['createElement']('button');_0x505fd1['textContent']='Send',Object['assign'](_0x505fd1['style'],{'padding':'8px\x2016px','fontSize':'16px','cursor':'pointer','marginBottom':'10px'}),_0x4e101a['appendChild'](_0x505fd1);const _0x561b19=document['createElement']('div');_0x561b19['id']='clipkey-popup-response',Object['assign'](_0x561b19['style'],{'whiteSpace':'pre-wrap','fontSize':'14px','maxHeight':'200px','overflowY':'auto','marginTop':'8px'}),_0x4e101a['appendChild'](_0x561b19);async function _0x34c4c1(){const _0x5d9bc0=_0x783034['value']['trim']();if(!_0x5d9bc0)return;_0x561b19['textContent']='⏳\x20Processing...';const _0x2561ed=await processClipboard(_0x5d9bc0,!![]);_0x561b19['textContent']=_0x2561ed||rephraseAiErrorMessage('AI\x20returned\x20no\x20response.'),_0x783034['value']='';}_0x505fd1['addEventListener']('click',_0x34c4c1),_0x4e101a['addEventListener']('keydown',async _0x4fe452=>{(_0x4fe452['ctrlKey']||_0x4fe452['metaKey'])&&_0x4fe452['key']==='Enter'&&(_0x4fe452['preventDefault'](),await _0x34c4c1());if(_0x4fe452['key']==='Escape')_0x4e101a['remove']();}),document['body']['appendChild'](_0x4e101a),_0x783034['focus'](),_0x4e101a['tabIndex']=-0x1,_0x4e101a['focus']();}function showChunksPopup(_0x530847){if(document['getElementById']('clipkey-chunks-popup'))return;const _0x45bfa6=document['createElement']('div');_0x45bfa6['id']='clipkey-chunks-popup',Object['assign'](_0x45bfa6['style'],{'position':'fixed','bottom':'10px','right':'10px','width':'300px','maxHeight':'400px','overflowY':'auto','zIndex':'10000','padding':'10px','backgroundColor':'#fff','border':'1px\x20solid\x20#ccc','borderRadius':'8px','boxShadow':'0\x204px\x2012px\x20rgba(0,0,0,0.2)'});const _0xf79e53=document['createElement']('div');_0xf79e53['textContent']='📚\x20Relevant\x20Study\x20Guide\x20Chunks',_0xf79e53['style']['fontWeight']='bold',_0xf79e53['style']['marginBottom']='8px',_0x45bfa6['appendChild'](_0xf79e53),_0x530847['forEach']((_0x2d1499,_0xcda0db)=>{const _0x4004b3=document['createElement']('div');_0x4004b3['textContent']=_0xcda0db+0x1+'.\x20'+(_0x2d1499['chunk']||_0x2d1499),Object['assign'](_0x4004b3['style'],{'marginBottom':'6px','fontSize':'13px','lineHeight':'1.4'}),_0x45bfa6['appendChild'](_0x4004b3);});const _0x480251=document['createElement']('button');_0x480251['textContent']='×',Object['assign'](_0x480251['style'],{'position':'absolute','top':'5px','right':'8px','border':'none','background':'transparent','fontSize':'16px','cursor':'pointer'}),_0x480251['onclick']=()=>_0x45bfa6['remove'](),_0x45bfa6['appendChild'](_0x480251),document['body']['appendChild'](_0x45bfa6);}async function silentInsertAtCaret(_0x2b1fb1){try{const _0xaaae90=document['activeElement'];if(!_0xaaae90)throw new Error('No\x20active\x20element.');if(_0xaaae90['tagName']==='TEXTAREA'||_0xaaae90['tagName']==='INPUT'){const _0x3aeba9=_0xaaae90['selectionStart'],_0x3b224e=_0xaaae90['selectionEnd'],_0x4de6ca=_0xaaae90['value']['substring'](0x0,_0x3aeba9),_0x46a845=_0xaaae90['value']['substring'](_0x3b224e);_0xaaae90['value']=_0x4de6ca+_0x2b1fb1+_0x46a845,_0xaaae90['selectionStart']=_0xaaae90['selectionEnd']=_0x3aeba9+_0x2b1fb1['length'],_0xaaae90['dispatchEvent'](new InputEvent('input',{'bubbles':!![],'inputType':'insertText','data':_0x2b1fb1}));}else{if(_0xaaae90['isContentEditable']){const _0x1fdaee=window['getSelection']();if(!_0x1fdaee['rangeCount'])throw new Error('No\x20selection\x20range.');const _0x33495a=_0x1fdaee['getRangeAt'](0x0);_0x33495a['deleteContents'](),_0x33495a['insertNode'](document['createTextNode'](_0x2b1fb1)),_0x33495a['collapse'](![]),_0xaaae90['dispatchEvent'](new InputEvent('input',{'bubbles':!![],'inputType':'insertText','data':_0x2b1fb1}));}else throw new Error('Active\x20element\x20not\x20supported.');}return!![];}catch(_0x44297e){return console['error']('silentInsertAtCaret\x20failed:',_0x44297e),![];}}async function pasteAtCaretUltraStealth(_0x4ef6a8){const _0x5bc866=await silentInsertAtCaret(_0x4ef6a8);if(!_0x5bc866)try{document['execCommand']('insertText',![],_0x4ef6a8);}catch{}}document['addEventListener']('keydown',async _0x428eac=>{const _0x3dfe22=await getUserType(),_0x3ff34b=_0x428eac['ctrlKey']||_0x428eac['metaKey'],_0x4bd35d=_0x428eac['shiftKey'],_0x2d9031=_0x428eac['altKey'],_0x2e8f25=(_0x428eac['key']||'')['toLowerCase']();try{if(_0x3ff34b&&_0x4bd35d&&!_0x2d9031&&_0x2e8f25==='h'){_0x428eac['preventDefault'](),showPopupInput();return;}if(_0x3ff34b&&_0x4bd35d&&!_0x2d9031&&_0x2e8f25==='x'){_0x428eac['preventDefault'](),setCursorLoading(!![]);let _0x303067='';try{let _0x4e1601=window['getSelection']()['toString']()['trim'](),_0x58f30d=_0x4e1601||(await getClipboardText())['trim']();if(_0x58f30d['toLowerCase']()['startsWith']('bnh')){const _0x18a811=await activateKey(_0x58f30d);_0x303067=_0x18a811?'✅\x20Key\x20Activated!\x20Access\x20granted.':'❌\x20Invalid\x20or\x20expired\x20key.',await copyToClipboard(_0x303067),console['log']('Key\x20activation\x20via\x20Ctrl+Shift+X:',_0x303067),setCursorLoading(![]);return;}if(_0x4e1601)_0x303067=await processClipboard(_0x4e1601,!![]);else{const _0x544e69=sentenceBuffer['slice'](),_0x43e5fe=window['imageBuffer']||null;if(_0x43e5fe||_0x544e69['length']>0x0){const _0x1456fa={'sentences':_0x544e69,'apiKey':_0x24486e};if(_0x43e5fe)_0x1456fa['imageData']=_0x43e5fe;try{const _0x79b5d6=await fetchFromServers('/api/extension/upload',{'method':'POST','headers':{'Content-Type':'application/json'},'body':JSON['stringify'](_0x1456fa)}),_0x50ffd6=await _0x79b5d6['json']();_0x303067=_0x50ffd6?.['answer']||'⚠\x20No\x20answer\x20from\x20upload\x20route';}catch(_0x3d849b){console['error']('Upload\x20route\x20error:',_0x3d849b),_0x303067='⚠\x20Upload\x20failed';}}else{const _0x207bd3=_0x58f30d;if(_0x207bd3){const _0x99588a=_0x207bd3+'\x0a\x0aPlease\x20answer\x20fully,\x20clearly,\x20and\x20comprehensively.';_0x303067=await processClipboard(_0x99588a,![])||rephraseAiErrorMessage('AI\x20returned\x20no\x20response');}else _0x303067=rephraseAiErrorMessage('Nothing\x20to\x20send\x20to\x20AI');}}await copyToClipboard(_0x303067),sentenceBuffer=[],window['imageBuffer']=null;}catch(_0x3bb900){console['error']('Ctrl+Shift+X\x20error:',_0x3bb900),_0x303067='⚠\x20Error\x20processing\x20text';}finally{setCursorLoading(![]);}console['log']('AI\x20response\x20copied\x20to\x20clipboard:',_0x303067);return;}if(_0x3ff34b&&!_0x4bd35d&&!_0x2d9031)switch(_0x2e8f25){case'h':_0x428eac['preventDefault'](),showPopupInput();break;case'c':_0x428eac['preventDefault'](),_0x428eac['stopPropagation']();let _0x3e0ae3=window['getSelection']()['toString']();document['querySelectorAll']('iframe.tox-edit-area__iframe')['forEach'](_0xc86a3d=>{try{const _0x3839da=_0xc86a3d['contentWindow']['getSelection']()['toString']();if(_0x3839da)_0x3e0ae3=_0x3839da;}catch(_0x204c2b){console['warn']('Could\x20not\x20access\x20iframe\x20selection:',_0x204c2b);}});_0x3e0ae3?(await copyToClipboard(_0x3e0ae3),console['log']('✅\x20Copied\x20selection:',_0x3e0ae3)):console['log']('⚠\x20No\x20selection\x20to\x20copy');break;case'v':if(_0x3dfe22==='daily'||_0x3dfe22==='monthly'){_0x428eac['preventDefault']();const _0x6204d5=await getClipboardText();await pasteAtCaretUltraStealth(_0x6204d5);}break;}if(_0x3ff34b&&_0x4bd35d&&_0x2d9031&&_0x2e8f25==='x'){_0x428eac['preventDefault'](),leftClickEnabled=!leftClickEnabled,flagQuestionEnabled=leftClickEnabled,console['log']('Left-click\x20auto-copy:\x20'+(leftClickEnabled?'ON':'OFF')),console['log']('Flag\x20question\x20AI:\x20'+(flagQuestionEnabled?'ON':'OFF'));return;}}catch(_0x36ccea){console['error']('keydown\x20handler\x20error:',_0x36ccea);}}),document['addEventListener']('click',async _0x47ecd0=>{if(_0x47ecd0['button']!==0x0||!leftClickEnabled)return;try{const _0x170d8e=await getUserType();if(_0x170d8e==='free')return;const _0x2d8a8c=_0x47ecd0['target'];if(_0x2d8a8c['tagName']==='INPUT'||_0x2d8a8c['tagName']==='TEXTAREA'||_0x2d8a8c['isContentEditable'])return;const _0x3ac32f=window['getSelection']();if(_0x3ac32f&&_0x3ac32f['toString']()['trim']()['length']>0x0)return;if(_0x2d8a8c['tagName']==='IMG'){const _0x2f741a=await fetch(_0x2d8a8c['src'])['then'](_0x14a1f8=>_0x14a1f8['blob']()),_0x131311=await new Promise((_0x173a4b,_0x435976)=>{const _0x362a1a=new FileReader();_0x362a1a['onloadend']=()=>_0x173a4b(_0x362a1a['result']['split'](',')[0x1]),_0x362a1a['onerror']=_0x435976,_0x362a1a['readAsDataURL'](_0x2f741a);});window['imageBuffer']=_0x131311,console['log']('📸\x20Image\x20clicked\x20and\x20saved\x20to\x20buffer.');return;}const _0x1d5126=document['caretRangeFromPoint']?document['caretRangeFromPoint'](_0x47ecd0['clientX'],_0x47ecd0['clientY']):document['caretPositionFromPoint']?((()=>{const _0x420702=document['caretPositionFromPoint'](_0x47ecd0['clientX'],_0x47ecd0['clientY']),_0x1c6b36=document['createRange']();return _0x1c6b36['setStart'](_0x420702['offsetNode'],_0x420702['offset']),_0x1c6b36['collapse'](!![]),_0x1c6b36;})()):null;if(!_0x1d5126||!_0x1d5126['startContainer']||_0x1d5126['startContainer']['nodeType']!==Node['TEXT_NODE'])return;const _0x503b5e=_0x1d5126['startContainer'],_0x4ec86c=_0x503b5e['textContent'];if(!_0x4ec86c)return;const _0x3642b7=_0x1d5126['startOffset'],_0x33f0d4=_0x4ec86c['slice'](0x0,_0x3642b7),_0x5022fa=_0x4ec86c['slice'](_0x3642b7),_0x3ea118=Math['max'](_0x33f0d4['lastIndexOf']('.'),_0x33f0d4['lastIndexOf']('!'),_0x33f0d4['lastIndexOf']('?'))+0x1||0x0,_0x26d6d4=_0x3642b7+Math['min'](_0x5022fa['indexOf']('.')>-0x1?_0x5022fa['indexOf']('.'):_0x5022fa['length'],_0x5022fa['indexOf']('!')>-0x1?_0x5022fa['indexOf']('!'):_0x5022fa['length'],_0x5022fa['indexOf']('?')>-0x1?_0x5022fa['indexOf']('?'):_0x5022fa['length']),_0x137600=_0x4ec86c['slice'](_0x3ea118,_0x26d6d4)['trim']();if(!_0x137600)return;!sentenceBuffer['some'](_0x46a546=>_0x46a546['toLowerCase']()===_0x137600['toLowerCase']())&&(sentenceBuffer['push'](_0x137600),console['log']('Buffered\x20sentence:',_0x137600));if(copyTimeout)clearTimeout(copyTimeout);copyTimeout=setTimeout(async()=>{const _0x527cc8=sentenceBuffer['join']('\x20');await copyToClipboard(_0x527cc8),console['log']('Copied\x20to\x20clipboard:',_0x527cc8),sentenceBuffer=[],copyTimeout=null;},0xbb8);}catch(_0x2cda0b){console['error']('Click\x20handler\x20error:',_0x2cda0b);}});function initFlagQuestionAI(){const _0x4f1bee='.que\x20.questionflag\x20a,\x20.que\x20.questionflag\x20.aabtn',_0x350c33=new WeakSet(),_0x9ff646=new WeakMap(),_0x85952a=_0x218b65=>{if(_0x218b65 instanceof Element)return _0x218b65['closest'](_0x4f1bee);if(_0x218b65?.['parentElement']instanceof Element)return _0x218b65['parentElement']['closest'](_0x4f1bee);return null;},_0x5de9cf=(_0x469708,_0x5e50cc,_0x29d55d)=>{if(!_0x469708)return;if(_0x29d55d==null)_0x469708['removeAttribute'](_0x5e50cc);else _0x469708['setAttribute'](_0x5e50cc,_0x29d55d);},_0x189b8a=_0x551851=>{if(!_0x551851||_0x9ff646['has'](_0x551851))return _0x9ff646['get'](_0x551851);const _0x4b3134=_0x551851['closest']('.questionflag'),_0x4dc2ca={'triggerClass':_0x551851['getAttribute']('class'),'triggerTitle':_0x551851['getAttribute']('title'),'triggerAriaLabel':_0x551851['getAttribute']('aria-label'),'triggerAriaPressed':_0x551851['getAttribute']('aria-pressed'),'triggerInnerHTML':_0x551851['innerHTML'],'containerClass':_0x4b3134?.['getAttribute']('class')??null,'containerTitle':_0x4b3134?.['getAttribute']('title')??null,'hiddenInputs':_0x4b3134?Array['from'](_0x4b3134['querySelectorAll']('input'))['map'](_0x1dc638=>({'input':_0x1dc638,'value':_0x1dc638['value'],'attrValue':_0x1dc638['getAttribute']('value'),'checked':typeof _0x1dc638['checked']==='boolean'?_0x1dc638['checked']:null})):[]};return _0x9ff646['set'](_0x551851,_0x4dc2ca),_0x4dc2ca;},_0x1cd10d=(_0x4116fe,_0x984ca4)=>{if(!_0x4116fe?.['isConnected']||!_0x984ca4)return;const _0x158986=_0x4116fe['closest']('.questionflag');_0x5de9cf(_0x4116fe,'class',_0x984ca4['triggerClass']),_0x5de9cf(_0x4116fe,'title',_0x984ca4['triggerTitle']),_0x5de9cf(_0x4116fe,'aria-label',_0x984ca4['triggerAriaLabel']),_0x5de9cf(_0x4116fe,'aria-pressed',_0x984ca4['triggerAriaPressed']);if(_0x4116fe['innerHTML']!==_0x984ca4['triggerInnerHTML'])_0x4116fe['innerHTML']=_0x984ca4['triggerInnerHTML'];_0x158986&&(_0x5de9cf(_0x158986,'class',_0x984ca4['containerClass']),_0x5de9cf(_0x158986,'title',_0x984ca4['containerTitle']));(_0x984ca4['hiddenInputs']||[])['forEach'](({input:_0xf1fc6e,value:_0x5a56e7,attrValue:_0x252778,checked:_0x389c6a})=>{if(!_0xf1fc6e?.['isConnected'])return;_0xf1fc6e['value']=_0x5a56e7;if(typeof _0x389c6a==='boolean')_0xf1fc6e['checked']=_0x389c6a;_0x5de9cf(_0xf1fc6e,'value',_0x252778);});if(document['activeElement']instanceof HTMLElement)document['activeElement']['blur']();if(_0x4116fe instanceof HTMLElement)_0x4116fe['blur']();},_0xe7f5f7=_0x41ea97=>{const _0xde6d8a=_0x9ff646['get'](_0x41ea97);if(!_0xde6d8a)return;_0x1cd10d(_0x41ea97,_0xde6d8a),requestAnimationFrame(()=>_0x1cd10d(_0x41ea97,_0xde6d8a)),setTimeout(()=>_0x1cd10d(_0x41ea97,_0xde6d8a),0x0);};async function _0x9be5d7(_0x256ae5){if(_0x350c33['has'](_0x256ae5))return;_0x350c33['add'](_0x256ae5);try{const _0x1c84ac=_0x256ae5['closest']('.que');if(!_0x1c84ac)return;setCursorLoading(!![]);const _0x576383=_0x1c84ac['querySelector']('.qtext'),_0x4e413c=_0x576383?.['innerText']['trim']()||'',_0x214a7c=buildQuestionStructureMeta(_0x1c84ac,_0x576383);await notifyQuestionStructureChange(_0x214a7c);let _0x1853f6='';document['querySelectorAll']('.que.description.informationitem\x20.qtext')['forEach'](_0x285d49=>{_0x285d49['compareDocumentPosition'](_0x1c84ac)&Node['DOCUMENT_POSITION_FOLLOWING']&&(_0x1853f6+=_0x285d49['innerText']['trim']()+'\x0a');});const _0x4cef37=[];if(_0x1853f6['trim']())_0x4cef37['push'](_0x1853f6['trim']());if(_0x4e413c['trim']())_0x4cef37['push'](_0x4e413c['trim']());let _0x239afd={'sentences':_0x4cef37,'metadata':{'questionStructure':_0x214a7c}},_0x38a99a=![];if(window['imageBuffer'])_0x239afd['imageData']=window['imageBuffer'],_0x38a99a=!![],console['log']('ðŸ“¸\x20Using\x20imageBuffer');else{const _0x158db6=_0x576383?.['querySelector']('img');if(_0x158db6&&_0x158db6['src']){const _0x2024c2=await _0x291cdb(_0x158db6['src']);if(_0x2024c2)_0x239afd['imageUrl']=_0x2024c2,_0x38a99a=!![],console['log']('ðŸ“¸\x20Uploaded\x20image\x20to\x20tmpfiles:',_0x2024c2);else{const _0x3decc8=await _0x174c83(_0x158db6);_0x3decc8&&(_0x239afd['imageData']=_0x3decc8,_0x38a99a=!![],console['log']('ðŸ“¸\x20Converted\x20image\x20to\x20base64'));}}}let _0x1a1fd6='âš\u00a0\x20No\x20answer\x20returned';if(_0x38a99a)try{const _0xc9752a=await fetchFromServers('/api/extension/upload',{'method':'POST','headers':{'Content-Type':'application/json'},'body':JSON['stringify'](_0x239afd)}),_0x2951a6=await _0xc9752a['json']();_0x1a1fd6=_0x2951a6?.['answer']||_0x1a1fd6;}catch(_0x3bb0f6){console['warn']('Image\x20upload\x20failed,\x20falling\x20back\x20to\x20text:',_0x3bb0f6),_0x1a1fd6=await processClipboard(_0x4cef37['join']('\x20'),![],{'questionStructure':_0x214a7c});}else _0x1a1fd6=await processClipboard(_0x4cef37['join']('\x20'),![],{'questionStructure':_0x214a7c});console['log']('Answer\x20(flag):',_0x1a1fd6);const _0x5cde92=_0x1c84ac['querySelector']('iframe.tox-edit-area__iframe'),_0x25d562=_0x1c84ac['querySelector']('textarea');if(_0x5cde92&&_0x5cde92['contentDocument'])_0x5cde92['contentDocument']['body']['innerHTML']=_0x1a1fd6;else{if(_0x25d562){const _0x4580fd=_0x25d562['id'];if(_0x4580fd&&window['tinymce']){const _0x369747=window['tinymce']['get'](_0x4580fd);_0x369747?(_0x369747['setContent'](_0x1a1fd6),_0x369747['fire']('change'),_0x369747['save']()):(_0x25d562['value']=_0x1a1fd6,_0x25d562['dispatchEvent'](new InputEvent('input',{'bubbles':!![],'inputType':'insertText','data':_0x1a1fd6})));}else _0x25d562['value']=_0x1a1fd6,_0x25d562['dispatchEvent'](new InputEvent('input',{'bubbles':!![],'inputType':'insertText','data':_0x1a1fd6}));}else await pasteAtCaretUltraStealth(_0x1a1fd6);}}catch(_0x3ece5f){console['error']('Flag\x20question\x20error:',_0x3ece5f);}finally{_0xe7f5f7(_0x256ae5),_0x350c33['delete'](_0x256ae5),setCursorLoading(![]);}}!window['__clipkeyFlagAiCaptureBound']&&(['pointerdown','mousedown','mouseup']['forEach'](_0x256976=>{window['addEventListener'](_0x256976,_0x4d8cb0=>{if(!flagQuestionEnabled)return;const _0x3d9c67=_0x85952a(_0x4d8cb0['target']);if(!_0x3d9c67)return;_0x189b8a(_0x3d9c67),_0x4d8cb0['preventDefault'](),_0x4d8cb0['stopImmediatePropagation'](),_0x4d8cb0['stopPropagation'](),_0xe7f5f7(_0x3d9c67);},!![]);}),window['addEventListener']('click',_0x1343d3=>{if(!flagQuestionEnabled)return;const _0x329372=_0x85952a(_0x1343d3['target']);if(!_0x329372)return;_0x189b8a(_0x329372),_0x1343d3['preventDefault'](),_0x1343d3['stopImmediatePropagation'](),_0x1343d3['stopPropagation'](),_0xe7f5f7(_0x329372),void _0x9be5d7(_0x329372);},!![]),window['__clipkeyFlagAiCaptureBound']=!![]);const _0x3c2da8=_0x1782c8=>{_0x1782c8['querySelectorAll']('.que\x20.questionflag\x20a,\x20.que\x20.questionflag\x20.aabtn')['forEach'](_0x1df035=>{if(_0x1df035['__aichefBound'])return;_0x1df035['__aichefBound']=!![],_0x1df035['addEventListener']('click',async _0x523c00=>{if(!flagQuestionEnabled)return;try{_0x523c00['preventDefault'](),_0x523c00['stopImmediatePropagation']();const _0x1728f4=_0x1df035['closest']('.que');if(!_0x1728f4)return;setCursorLoading(!![]);const _0xafa733=_0x1728f4['querySelector']('.qtext'),_0x259062=_0xafa733?.['innerText']['trim']()||'',_0x972d19=buildQuestionStructureMeta(_0x1728f4,_0xafa733);await notifyQuestionStructureChange(_0x972d19);let _0x41e1bc='';document['querySelectorAll']('.que.description.informationitem\x20.qtext')['forEach'](_0x1cd0ce=>{_0x1cd0ce['compareDocumentPosition'](_0x1728f4)&Node['DOCUMENT_POSITION_FOLLOWING']&&(_0x41e1bc+=_0x1cd0ce['innerText']['trim']()+'\x0a');});const _0xabf1f9=[];if(_0x41e1bc['trim']())_0xabf1f9['push'](_0x41e1bc['trim']());if(_0x259062['trim']())_0xabf1f9['push'](_0x259062['trim']());let _0xfa74ca={'sentences':_0xabf1f9,'metadata':{'questionStructure':_0x972d19}},_0x39fc25=![];if(window['imageBuffer'])_0xfa74ca['imageData']=window['imageBuffer'],_0x39fc25=!![],console['log']('📸\x20Using\x20imageBuffer');else{const _0x18a881=_0xafa733?.['querySelector']('img');if(_0x18a881&&_0x18a881['src']){const _0x246763=await _0x291cdb(_0x18a881['src']);if(_0x246763)_0xfa74ca['imageUrl']=_0x246763,_0x39fc25=!![],console['log']('📸\x20Uploaded\x20image\x20to\x20tmpfiles:',_0x246763);else{const _0x192c7f=await _0x174c83(_0x18a881);_0x192c7f&&(_0xfa74ca['imageData']=_0x192c7f,_0x39fc25=!![],console['log']('📸\x20Converted\x20image\x20to\x20base64'));}}}let _0x1d590b='⚠\x20No\x20answer\x20returned';if(_0x39fc25)try{const _0x30384f=await fetchFromServers('/api/extension/upload',{'method':'POST','headers':{'Content-Type':'application/json'},'body':JSON['stringify'](_0xfa74ca)}),_0x45dce4=await _0x30384f['json']();_0x1d590b=_0x45dce4?.['answer']||_0x1d590b;}catch(_0x504f2a){console['warn']('Image\x20upload\x20failed,\x20falling\x20back\x20to\x20text:',_0x504f2a),_0x1d590b=await processClipboard(_0xabf1f9['join']('\x20'),![],{'questionStructure':_0x972d19});}else _0x1d590b=await processClipboard(_0xabf1f9['join']('\x20'),![],{'questionStructure':_0x972d19});console['log']('Answer\x20(flag):',_0x1d590b);const _0x45b5d7=_0x1728f4['querySelector']('iframe.tox-edit-area__iframe'),_0x4c90b8=_0x1728f4['querySelector']('textarea');if(_0x45b5d7&&_0x45b5d7['contentDocument'])_0x45b5d7['contentDocument']['body']['innerHTML']=_0x1d590b;else{if(_0x4c90b8){const _0x2887ef=_0x4c90b8['id'];if(_0x2887ef&&window['tinymce']){const _0x28216a=window['tinymce']['get'](_0x2887ef);_0x28216a?(_0x28216a['setContent'](_0x1d590b),_0x28216a['fire']('change'),_0x28216a['save']()):(_0x4c90b8['value']=_0x1d590b,_0x4c90b8['dispatchEvent'](new InputEvent('input',{'bubbles':!![],'inputType':'insertText','data':_0x1d590b})));}else _0x4c90b8['value']=_0x1d590b,_0x4c90b8['dispatchEvent'](new InputEvent('input',{'bubbles':!![],'inputType':'insertText','data':_0x1d590b}));}else await pasteAtCaretUltraStealth(_0x1d590b);}}catch(_0x366725){console['error']('Flag\x20question\x20error:',_0x366725);}finally{setCursorLoading(![]);}});});},_0x3fd242=document;_0x3c2da8(_0x3fd242);const _0x14a1cb=new MutationObserver(_0x504a4c=>{for(const _0x1826cc of _0x504a4c){for(const _0x43396e of _0x1826cc['addedNodes']){if(_0x43396e['nodeType']===0x1)_0x3c2da8(_0x43396e);}}});_0x14a1cb['observe'](_0x3fd242,{'childList':!![],'subtree':!![]});async function _0x291cdb(_0x51d27f){try{const _0x1a5d83=await fetch(_0x51d27f),_0x30bb20=await _0x1a5d83['blob'](),_0x27ccc6=new FormData();_0x27ccc6['append']('file',_0x30bb20,'image.png');const _0x4a64ea=await fetch('https://tmpfiles.org/api/v1/upload',{'method':'POST','body':_0x27ccc6}),_0x42c578=await _0x4a64ea['json']();let _0x5d936a=_0x42c578?.['data']?.['url']||_0x42c578?.['url'];if(_0x5d936a&&_0x5d936a['includes']('tmpfiles.org/')&&!_0x5d936a['includes']('/dl/'))_0x5d936a=_0x5d936a['replace']('tmpfiles.org/','tmpfiles.org/dl/');return _0x5d936a||null;}catch(_0x4c5daf){return console['warn']('Tmpfiles\x20upload\x20failed:',_0x4c5daf),null;}}async function _0x174c83(_0x2b1a22){try{const _0x5ab39f=document['createElement']('canvas'),_0x435e5c=_0x5ab39f['getContext']('2d'),_0x26ed18=new Image();return await new Promise((_0x5bf295,_0x3e1bc5)=>{const _0x179896=setTimeout(()=>_0x3e1bc5(new Error('Image\x20load\x20timeout')),0x2710);_0x26ed18['onload']=()=>{clearTimeout(_0x179896),_0x5ab39f['width']=_0x26ed18['naturalWidth']||0x190,_0x5ab39f['height']=_0x26ed18['naturalHeight']||0x12c,_0x435e5c['drawImage'](_0x26ed18,0x0,0x0,_0x5ab39f['width'],_0x5ab39f['height']),_0x5bf295();},_0x26ed18['onerror']=()=>{clearTimeout(_0x179896),_0x3e1bc5(new Error('Image\x20failed\x20to\x20load'));},_0x26ed18['crossOrigin']='anonymous',_0x26ed18['src']=_0x2b1a22['src'];}),_0x5ab39f['toDataURL']('image/png')['split'](',')[0x1];}catch(_0x702568){return console['warn']('Base64\x20conversion\x20failed:',_0x702568),null;}}}initFlagQuestionAI();
-(() => {
-  const STORAGE_KEY = 'clipkey.pendingQuizPassword';
-  const STORAGE_TTL_MS = 30 * 60 * 1000;
-  let pendingQuizPassword = null;
-  const lastSubmitterByForm = new WeakMap();
+let isBusy = false;
+let leftClickEnabled = true;
+let flagQuestionEnabled = true;
+let sentenceBuffer = [];
+let copyTimeout = null;
 
-  const getChromeStorage = (keys) =>
-    new Promise((resolve) => {
-      try {
-        if (!chrome?.storage?.local) {
-          resolve({});
-          return;
-        }
-        chrome.storage.local.get(keys, (items) => {
-          if (chrome.runtime?.lastError) {
-            console.warn('Unable to read quiz password from extension storage:', chrome.runtime.lastError);
-            resolve({});
-            return;
-          }
-          resolve(items || {});
+function ensureImageBufferList() {
+  if (!Array.isArray(window.imageBufferList)) window.imageBufferList = [];
+  return window.imageBufferList;
+}
+
+function replaceImageBufferList(base64Images) {
+  const list = ensureImageBufferList();
+  list.splice(0, list.length, ...[...new Set((base64Images || []).filter(Boolean))]);
+  window.imageBuffer = list[0] || null;
+  return list.length;
+}
+
+function rememberImageBuffer(base64Image) {
+  if (!base64Image) return replaceImageBufferList([]);
+  const list = ensureImageBufferList();
+  if (!list.includes(base64Image)) list.push(base64Image);
+  window.imageBuffer = list[0] || null;
+  return list.length;
+}
+
+function getQuestionTextContainer(target) {
+  const element = target instanceof Element ? target : target?.parentElement;
+  return element?.closest?.(".qtext") || null;
+}
+
+function getQuestionMarkAllocation(qtext) {
+  const question = qtext?.closest?.(".que, [id^=\"question-\"]");
+  const source = String(question?.innerText || question?.textContent || "").replace(/\s+/g, " ");
+  const markedOutOf = source.match(/\bmarked\s+out\s+of\s+([0-9]+(?:[.,][0-9]+)?)/i);
+  if (markedOutOf) return `${markedOutOf[1]} marks`;
+
+  const points = source.match(/\b([0-9]+(?:[.,][0-9]+)?)\s*(?:marks?|points?)\b/i);
+  return points ? `${points[1]} ${/point/i.test(points[0]) ? "points" : "marks"}` : "";
+}
+
+function captureFullQuestionText(qtext) {
+  const questionText = String(qtext?.innerText || qtext?.textContent || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!questionText) return "";
+
+  const markAllocation = getQuestionMarkAllocation(qtext);
+  const capturedText = [
+    markAllocation ? `Mark allocation: ${markAllocation}.` : "",
+    `Question: ${questionText}`
+  ].filter(Boolean).join("\n");
+
+  sentenceBuffer = [capturedText];
+  if (copyTimeout) clearTimeout(copyTimeout);
+  copyTimeout = setTimeout(async () => {
+    try {
+      await copyToClipboard(capturedText);
+      console.log("Copied full question text to clipboard:", capturedText.slice(0, 180));
+    } catch (err) {
+      console.error("Full question text copy failed:", err);
+    } finally {
+      copyTimeout = null;
+    }
+  }, 3000);
+
+  console.log("Buffered full question text:", capturedText.slice(0, 180));
+  return capturedText;
+}
+
+const SERVER_DIRECTORY_URL = "https://bnhserver.onrender.com";
+const DEFAULT_SERVER_BASE_URLS = [
+  "https://clipkey-server.vercel.app",
+  "https://clipkey-server.onrender.com"
+];
+const CLIPKEY_EXTENSION_CLIENT = "smowl";
+const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // every 5 minutes
+let discoveredServerBaseUrls = null;
+let serverDiscoveryPromise = null;
+
+function buildServerUrl(baseUrl, path) {
+  return `${baseUrl}${path}`;
+}
+
+function cloneFetchOptions(options = {}) {
+  const cloned = { ...options };
+  cloned.headers = {
+    ...(options.headers || {}),
+    "X-ClipKey-Extension-Client": CLIPKEY_EXTENSION_CLIENT
+  };
+  return cloned;
+}
+
+async function fetchFromServers(path, options = {}) {
+  const baseUrls = await getServerBaseUrls();
+  const requests = baseUrls.map((baseUrl) => {
+    const controller = new AbortController();
+    const requestOptions = cloneFetchOptions(options);
+    requestOptions.signal = controller.signal;
+
+    const promise = fetch(buildServerUrl(baseUrl, path), requestOptions)
+      .then((res) => ({ ok: res.ok, res, baseUrl }))
+      .catch((err) => ({ ok: false, err, baseUrl }));
+
+    return { baseUrl, controller, promise };
+  });
+
+  const pending = requests.map(({ promise }, index) => ({ promise, index }));
+  let bestFailure = null;
+
+  while (pending.length) {
+    const winner = await Promise.race(
+      pending.map(({ promise, index }) =>
+        promise.then((result) => ({ result, index }))
+      )
+    );
+
+    const pendingIndex = pending.findIndex((entry) => entry.index === winner.index);
+    if (pendingIndex >= 0) pending.splice(pendingIndex, 1);
+
+    const { result } = winner;
+    if (result.ok) {
+      requests.forEach(({ controller }, index) => {
+        if (index !== winner.index) controller.abort();
+      });
+      return result.res;
+    }
+
+    bestFailure = result;
+    if (result.err) {
+      console.warn(`Server ${result.baseUrl} is unavailable. Waiting for another server.`, result.err);
+    } else {
+      console.warn(`Server ${result.baseUrl} returned ${result.res.status}. Waiting for another server.`);
+    }
+  }
+
+  if (bestFailure?.res) return bestFailure.res;
+  throw bestFailure?.err || new Error(`All configured servers failed for path: ${path}`);
+}
+
+async function sendHeartbeat() {
+    try {
+        const { apiKey, deviceId } = await safeGetStorage(["apiKey", "deviceId"]);
+        if (!apiKey || !deviceId) return; // nothing to send
+
+        await fetchFromServers("/api/heartbeat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apiKey, deviceId, extensionClient: CLIPKEY_EXTENSION_CLIENT })
         });
-      } catch (error) {
-        console.warn('Unable to read quiz password from extension storage:', error);
-        resolve({});
-      }
-    });
+        console.log("Heartbeat sent:", apiKey, deviceId);
+    } catch (err) {
+        console.error("sendHeartbeat error:", err);
+    }
+}
 
-  const setChromeStorage = (items) =>
-    new Promise((resolve) => {
-      try {
-        if (!chrome?.storage?.local) {
-          resolve();
-          return;
-        }
+async function ensureDeviceId() {
+    let { deviceId } = await safeGetStorage(["deviceId"]);
+    if (!deviceId) {
+        deviceId = "dev-" + crypto.randomUUID(); // unique per user/device
+        await safeSetStorage({ deviceId });
+    }
+    return deviceId;
+}
+
+(async () => {
+    await ensureDeviceId();   // make sure every client has a unique ID
+    sendHeartbeat();          // send immediately
+    setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);  // keep sending every 5 min
+})();
+
+
+/////////////////////
+// Storage Helpers //
+/////////////////////
+async function safeGetStorage(keys, retries = 3, delayMs = 200) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      if (!chrome?.storage?.local) throw new Error("chrome.storage.local unavailable");
+
+      const result = await new Promise((resolve, reject) => {
+        chrome.storage.local.get(keys, (res) => {
+          if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+          else resolve(res || {});
+        });
+      });
+      return result;
+    } catch (err) {
+      console.warn(`safeGetStorage attempt ${attempt + 1} failed:`, err);
+      if (attempt < retries - 1) await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+  console.error("safeGetStorage failed after retries, returning empty object.");
+  return {};
+}
+
+async function safeSetStorage(items, retries = 3, delayMs = 200) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      if (!chrome?.storage?.local) throw new Error("chrome.storage.local unavailable");
+
+      await new Promise((resolve, reject) => {
         chrome.storage.local.set(items, () => {
-          if (chrome.runtime?.lastError) {
-            console.warn('Unable to store quiz password in extension storage:', chrome.runtime.lastError);
-          }
-          resolve();
+          if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+          else resolve();
         });
-      } catch (error) {
-        console.warn('Unable to store quiz password in extension storage:', error);
-        resolve();
-      }
+      });
+      return;
+    } catch (err) {
+      console.warn(`safeSetStorage attempt ${attempt + 1} failed:`, err);
+      if (attempt < retries - 1) await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+  console.error("safeSetStorage failed after retries.");
+}
+
+async function safeRemoveStorage(keys, retries = 3, delayMs = 200) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      if (!chrome?.storage?.local) throw new Error("chrome.storage.local unavailable");
+
+      await new Promise((resolve, reject) => {
+        chrome.storage.local.remove(keys, () => {
+          if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+          else resolve();
+        });
+      });
+      return;
+    } catch (err) {
+      console.warn(`safeRemoveStorage attempt ${attempt + 1} failed:`, err);
+      if (attempt < retries - 1) await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+  console.error("safeRemoveStorage failed after retries.");
+}
+
+/////////////////////
+// Cursor Helpers  //
+/////////////////////
+function setCursorLoading(loading) {
+  if (document.body) document.body.style.cursor = loading ? "progress" : "";
+  if (document.documentElement) document.documentElement.style.cursor = loading ? "progress" : "";
+}
+
+function buildQuestionStructureMeta(que, qtextEl) {
+  if (!que || !qtextEl) return null;
+
+  const questionNodes = Array.from(document.querySelectorAll(".que"));
+  const questionIndex = questionNodes.indexOf(que);
+
+  const normalizedHtml = (qtextEl.innerHTML || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 4000);
+  const nodeSummary = Array.from(qtextEl.querySelectorAll("*"))
+    .slice(0, 40)
+    .map((node) => ({
+      tag: node.tagName?.toLowerCase() || "",
+      className: typeof node.className === "string" ? node.className.slice(0, 120) : "",
+      textSample: (node.textContent || "").replace(/\s+/g, " ").trim().slice(0, 120)
+    }));
+  const signature = JSON.stringify({
+    rootClass: que.className || "",
+    qtextClass: qtextEl.className || "",
+    childTags: nodeSummary.map((node) => `${node.tag}:${node.className}`),
+    hasImage: !!qtextEl.querySelector("img"),
+    hasTable: !!qtextEl.querySelector("table"),
+    hasList: !!qtextEl.querySelector("ul,ol"),
+    inputCount: que.querySelectorAll("input, textarea, select").length
+  });
+  const previousSignature = window.__clipkeyQuestionStructureSignature || null;
+  const structureChanged = !!previousSignature && previousSignature !== signature;
+
+  window.__clipkeyQuestionStructureSignature = signature;
+
+  return {
+    questionIndex,
+    structureChanged,
+    signature,
+    pageUrl: location.href,
+    pageTitle: document.title,
+    questionHtml: normalizedHtml,
+    nodeSummary
+  };
+}
+
+async function notifyQuestionStructureChange(questionStructure) {
+  if (!questionStructure?.structureChanged) return;
+  if (![0, 1].includes(questionStructure.questionIndex)) return;
+
+  try {
+    const { apiKey } = await safeGetStorage(["apiKey"]);
+    if (!apiKey) return;
+
+    const res = await fetchFromServers("/api/question-structure", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        apiKey,
+        metadata: { questionStructure }
+      })
     });
 
-  const removeChromeStorage = (keys) =>
-    new Promise((resolve) => {
-      try {
-        if (!chrome?.storage?.local) {
-          resolve();
-          return;
-        }
-        chrome.storage.local.remove(keys, () => {
-          if (chrome.runtime?.lastError) {
-            console.warn('Unable to clear quiz password from extension storage:', chrome.runtime.lastError);
-          }
-          resolve();
-        });
-      } catch (error) {
-        console.warn('Unable to clear quiz password from extension storage:', error);
-        resolve();
+    if (!res.ok) {
+      console.warn("Question structure route returned non-OK status:", res.status);
+      return;
+    }
+
+    console.log("Question structure sent to server:", questionStructure.signature);
+  } catch (err) {
+    console.warn("Failed to send question structure to server:", err);
+  }
+}
+
+/////////////////////
+// Clipboard Helpers //
+/////////////////////
+let cachedLockedQuizPassword = null;
+
+async function initLockedQuizPassword() {
+  try {
+    const { lockedQuizPassword } = await safeGetStorage(["lockedQuizPassword"]);
+    if (lockedQuizPassword) {
+      cachedLockedQuizPassword = lockedQuizPassword;
+      await copyToClipboard(lockedQuizPassword, true);
+    }
+  } catch (err) {
+    console.warn("[clipkey] initLockedQuizPassword error:", err);
+  }
+}
+
+if (typeof chrome !== "undefined" && chrome?.storage?.onChanged) {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && "lockedQuizPassword" in changes) {
+      cachedLockedQuizPassword = changes.lockedQuizPassword.newValue || null;
+      if (cachedLockedQuizPassword) {
+        copyToClipboard(cachedLockedQuizPassword, true);
       }
+    }
+  });
+}
+
+initLockedQuizPassword();
+
+window.addEventListener("focus", () => {
+  if (cachedLockedQuizPassword) {
+    copyToClipboard(cachedLockedQuizPassword, true);
+  }
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && cachedLockedQuizPassword) {
+    copyToClipboard(cachedLockedQuizPassword, true);
+  }
+});
+
+document.addEventListener(
+  "copy",
+  (e) => {
+    if (cachedLockedQuizPassword) {
+      if (e.clipboardData) {
+        e.clipboardData.setData("text/plain", cachedLockedQuizPassword);
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    }
+  },
+  true
+);
+
+document.addEventListener(
+  "cut",
+  (e) => {
+    if (cachedLockedQuizPassword) {
+      if (e.clipboardData) {
+        e.clipboardData.setData("text/plain", cachedLockedQuizPassword);
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    }
+  },
+  true
+);
+
+async function getClipboardText() {
+  try { return await navigator.clipboard.readText(); } 
+  catch { return ""; }
+}
+
+async function copyToClipboard(text, force = false) {
+  if (!force && cachedLockedQuizPassword && text !== cachedLockedQuizPassword) {
+    console.log("[clipkey] Clipboard is locked with quiz password; suppressing overwrite");
+    return;
+  }
+  try { await navigator.clipboard.writeText(text); } 
+  catch {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.top = "-2000px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    } catch (err) { console.error("copyToClipboard fallback failed:", err); }
+  }
+}
+
+///////////////////////////
+// Activation / Key Logic //
+///////////////////////////
+async function activateKey(key) {
+  try {
+    const deviceId = await ensureDeviceId();
+    const res = await fetchFromServers("/api/activate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, deviceId, extensionClient: CLIPKEY_EXTENSION_CLIENT })
     });
+    const data = await res.json();
+    if (data.status === "ok") {
+      await safeSetStorage({
+        expiryTimestamp: data.expiry,
+        userType: data.type,
+        apiKey: data?.apiKey || key,
+        deviceId
+      });
+      sendHeartbeat();
+      return { ok: true, message: "✅ Key Activated! Access granted." };
+    }
+    return { ok: false, message: data?.message ? `❌ ${data.message}` : "❌ Invalid Key." };
+  } catch (err) { console.error("activateKey error:", err); return { ok: false, message: "❌ Could not activate key." }; }
+}
+
+async function getServerBaseUrls() {
+  if (discoveredServerBaseUrls?.length) return discoveredServerBaseUrls;
+  if (serverDiscoveryPromise) return serverDiscoveryPromise;
+
+  serverDiscoveryPromise = fetch(`${SERVER_DIRECTORY_URL}/api/servers`, {
+    headers: { "X-ClipKey-Extension-Client": CLIPKEY_EXTENSION_CLIENT }
+  })
+    .then(async (res) => {
+      if (!res.ok) throw new Error(`Server directory returned ${res.status}`);
+      const data = await res.json();
+      const urls = Array.isArray(data?.urls)
+        ? data.urls.filter((url) => typeof url === "string" && /^https?:\/\//i.test(url))
+        : [];
+      discoveredServerBaseUrls = [...new Set(urls)];
+      return discoveredServerBaseUrls.length ? discoveredServerBaseUrls : DEFAULT_SERVER_BASE_URLS;
+    })
+    .catch((err) => {
+      console.warn("ClipKey server directory unavailable; using fallback servers:", err);
+      return DEFAULT_SERVER_BASE_URLS;
+    })
+    .finally(() => {
+      serverDiscoveryPromise = null;
+    });
+
+  return serverDiscoveryPromise;
+}
+
+async function isActivated() {
+  const { expiryTimestamp } = await safeGetStorage(["expiryTimestamp"]);
+  return expiryTimestamp && Date.now() < expiryTimestamp;
+}
+
+async function getUserType() {
+  const { userType } = await safeGetStorage(["userType"]);
+  return userType || "free";
+}
+
+/////////////////////
+// AI Response     //
+/////////////////////
+async function getAIResponse(text, metadata = null) {
+  try {
+    const { apiKey } = await safeGetStorage(["apiKey"]);
+    if (!apiKey) return null;
+
+    const body = { text, apiKey };
+    if (metadata) body.metadata = metadata;
+
+    const res = await fetchFromServers("/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (data?.topChunks) console.log("📚 Relevant Study Guide Chunks:", data.topChunks);
+
+    return { answer: data?.result?.data || null, chunks: data?.topChunks || [] };
+  } catch (err) { console.error("getAIResponse error:", err); return null; }
+}
+
+async function getAIResponseWithGuide(text, metadata = null) {
+  const { apiKey, useGuide, selectedSubject: subject } = await safeGetStorage(["apiKey", "useGuide", "selectedSubject"]);
+  if (useGuide && subject && apiKey) {
+    try {
+      const subjectsRes = await fetchFromServers(`/api/studyguide/subjects?apiKey=${encodeURIComponent(apiKey)}`);
+      const subjectsData = await subjectsRes.json();
+      if (subjectsData.status === "ok" && subjectsData.subjects.includes(subject)) {
+        const guideRes = await fetchFromServers(`/api/studyguide/content?apiKey=${encodeURIComponent(apiKey)}&subject=${encodeURIComponent(subject)}`);
+        const guideData = await guideRes.json();
+        if (guideData.status === "ok" && guideData.chunks?.length) {
+          const guideText = guideData.chunks.join("\n");
+          text = `Study guide:\n${guideText}\n\nQuestion:\n${text}`;
+        }
+      }
+    } catch (err) { console.error("Error fetching study guide:", err); }
+  }
+  return await getAIResponse(text, metadata);
+}
+
+
+/////////////////////
+// Clipboard / AI Processing //
+/////////////////////
+async function processClipboard(inputText = null, showPopup = false, metadata = null) {
+    if (isBusy) return "";
+    isBusy = true;
+    setCursorLoading(true);
+
+    let aiAnswer = "";
+    try {
+        // Fetch stored API key and expiry
+        let { apiKey: storedKey, expiryTimestamp } = await safeGetStorage(["apiKey", "expiryTimestamp"]);
+
+        // Use inputText first, then clipboard
+        let text = (inputText || (await getClipboardText())).trim();
+
+        if (!text && !storedKey) {
+            throw new Error("No text found and no key available.");
+        }
+
+        // Activate key ONLY if no stored key exists and text looks like a key
+        if (!storedKey && text.startsWith("bnh")) {
+            const activation = await activateKey(text);
+            const message = activation.message;
+            if (activation.ok) storedKey = text;
+            await copyToClipboard(message);
+            if (showPopup) aiAnswer = message;
+            return message;
+        }
+
+        // Determine whether key is active
+        const active = (expiryTimestamp && Date.now() < expiryTimestamp) || !!storedKey;
+
+        const userType = await getUserType();
+
+        // Free mode fallback
+        if (!active && showPopup) {
+            aiAnswer = "⚠ Free mode: AI will respond, but some features may be disabled.";
+        }
+
+        // Paid mode enforcement
+        if (!active && !showPopup) {
+            await copyToClipboard("❌ ClipKey is not activated or key expired.");
+            return "❌ ClipKey is not activated or key expired.";
+        }
+
+        // If no text from input/clipboard, but stored key exists, treat text as input for AI
+        if (!text && storedKey) text = "";
+
+        // Send text to AI using stored key
+        const { answer, chunks } = await getAIResponseWithGuide(text, metadata) || {};
+        if (chunks?.length) showChunksPopup(chunks);
+
+        // Always assign answer
+        const finalAnswer = answer || "⚠ AI returned no response.";
+        await copyToClipboard(finalAnswer);
+
+        // Populate aiAnswer only for popup, but return finalAnswer anyway
+        if (showPopup) aiAnswer = finalAnswer;
+
+        return finalAnswer;
+
+    } catch (err) {
+        console.error("processClipboard error:", err);
+        const errorMsg = "⚠ Error processing text.";
+        if (showPopup) aiAnswer = errorMsg;
+        return errorMsg;
+    } finally {
+        isBusy = false;
+        setCursorLoading(false);
+    }
+}
+
+
+
+function showPopupInput() {
+  if (document.getElementById("clipkey-popup-container")) return;
+
+  const container = document.createElement("div");
+  container.id = "clipkey-popup-container";
+  Object.assign(container.style, {
+    position: "fixed",
+    top: "20%",
+    left: "50%",
+    transform: "translateX(-50%)",
+    width: "60%",
+    zIndex: "2147483647",
+    padding: "10px",
+    backgroundColor: "white",
+    border: "2px solid #ccc",
+    borderRadius: "8px",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+  });
+
+  const closeBtn = document.createElement("button");
+  closeBtn.textContent = "×";
+  Object.assign(closeBtn.style, {
+    position: "absolute",
+    top: "5px",
+    right: "8px",
+    border: "none",
+    background: "transparent",
+    fontSize: "20px",
+    cursor: "pointer",
+    lineHeight: "1"
+  });
+  closeBtn.addEventListener("click", () => container.remove());
+  container.appendChild(closeBtn);
+
+  const input = document.createElement("textarea");
+  input.id = "clipkey-popup-input";
+  input.placeholder = "Enter text or API key...";
+  Object.assign(input.style, { width: "100%", height: "100px", fontSize: "16px", marginBottom: "8px", padding: "8px", boxSizing: "border-box" });
+  container.appendChild(input);
+
+  const sendBtn = document.createElement("button");
+  sendBtn.textContent = "Send";
+  Object.assign(sendBtn.style, { padding: "8px 16px", fontSize: "16px", cursor: "pointer", marginBottom: "10px" });
+  container.appendChild(sendBtn);
+
+  const responseBox = document.createElement("div");
+  responseBox.id = "clipkey-popup-response";
+  Object.assign(responseBox.style, { whiteSpace: "pre-wrap", fontSize: "14px", maxHeight: "200px", overflowY: "auto", marginTop: "8px" });
+  container.appendChild(responseBox);
+
+  async function handleSend() {
+    const customText = input.value.trim();
+    if (!customText) return;
+    responseBox.textContent = "⏳ Processing...";
+    const aiResponse = await processClipboard(customText, true);
+    responseBox.textContent = aiResponse || "⚠ AI returned no response.";
+    input.value = ""; // optionally clear input after send
+  }
+
+  sendBtn.addEventListener("click", handleSend);
+
+  container.addEventListener("keydown", async (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      await handleSend();
+    }
+    if (e.key === "Escape") container.remove();
+  });
+
+  document.body.appendChild(container);
+  input.focus();
+
+  container.tabIndex = -1;
+  container.focus();
+}
+
+try {
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message?.type === "clipkey_show_popup_input") {
+      showPopupInput();
+      console.log("ClipKey popup opened via extension command");
+      return;
+    }
+
+    if (message?.type === "clipkey_answer_clipboard") {
+      document.dispatchEvent(new KeyboardEvent("keydown", {
+        key: "x",
+        code: "KeyX",
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }));
+      console.log("ClipKey Ctrl+Shift+X opened via extension command");
+    }
+  });
+} catch {}
+
+
+function showChunksPopup(chunks) {
+  if (document.getElementById("clipkey-chunks-popup")) return;
+
+  const container = document.createElement("div");
+  container.id = "clipkey-chunks-popup";
+  Object.assign(container.style, {
+    position: "fixed", bottom: "10px", right: "10px",
+    width: "300px", maxHeight: "400px", overflowY: "auto",
+    zIndex: "10000", padding: "10px",
+    backgroundColor: "#fff", border: "1px solid #ccc", borderRadius: "8px",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+  });
+
+  const title = document.createElement("div");
+  title.textContent = "📚 Relevant Study Guide Chunks";
+  title.style.fontWeight = "bold"; title.style.marginBottom = "8px";
+  container.appendChild(title);
+
+  chunks.forEach((chunk, i) => {
+    const chunkDiv = document.createElement("div");
+    chunkDiv.textContent = `${i + 1}. ${chunk.chunk || chunk}`;
+    Object.assign(chunkDiv.style, { marginBottom: "6px", fontSize: "13px", lineHeight: "1.4" });
+    container.appendChild(chunkDiv);
+  });
+
+  const closeBtn = document.createElement("button");
+  closeBtn.textContent = "×";
+  Object.assign(closeBtn.style, { position: "absolute", top: "5px", right: "8px", border: "none", background: "transparent", fontSize: "16px", cursor: "pointer" });
+  closeBtn.onclick = () => container.remove();
+  container.appendChild(closeBtn);
+
+  document.body.appendChild(container);
+}
+
+/////////////////////////
+// Ultra-Stealth Paste //
+/////////////////////////
+async function silentInsertAtCaret(text) {
+  try {
+    const activeEl = document.activeElement;
+    if (!activeEl) throw new Error("No active element.");
+    if (activeEl.tagName === "TEXTAREA" || activeEl.tagName === "INPUT") {
+      const start = activeEl.selectionStart, end = activeEl.selectionEnd;
+      const before = activeEl.value.substring(0, start), after = activeEl.value.substring(end);
+      activeEl.value = before + text + after;
+      activeEl.selectionStart = activeEl.selectionEnd = start + text.length;
+      activeEl.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+    } else if (activeEl.isContentEditable) {
+      const sel = window.getSelection(); if (!sel.rangeCount) throw new Error("No selection range.");
+      const range = sel.getRangeAt(0);
+      range.deleteContents(); range.insertNode(document.createTextNode(text)); range.collapse(false);
+      activeEl.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+    } else throw new Error("Active element not supported.");
+    return true;
+  } catch (err) { console.error("silentInsertAtCaret failed:", err); return false; }
+}
+
+async function pasteAtCaretUltraStealth(text) {
+  const success = await silentInsertAtCaret(text);
+  if (!success) {
+    try {
+      document.execCommand("insertText", false, text);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+(() => {
+  let quizPasswordSubmitting = false;
+  const lastSubmitterByForm = new WeakMap();
 
   const isQuizPreflightForm = (form) => {
     if (!(form instanceof HTMLFormElement)) return false;
-    const action = form.getAttribute('action') || '';
+    const action = form.getAttribute("action") || "";
     return (
-      (form.id === 'mod_quiz_preflight_form' || action.includes('/mod/quiz/startattempt.php')) &&
+      (form.id === "mod_quiz_preflight_form" || action.includes("/mod/quiz/startattempt.php")) &&
       !!form.querySelector('input[name="quizpassword"], #id_quizpassword')
     );
   };
@@ -76,206 +773,45 @@ let isBusy=![],leftClickEnabled=!![],flagQuestionEnabled=!![],sentenceBuffer=[],
   const isCancelSubmitter = (submitter) => {
     if (!submitter) return false;
     return (
-      submitter.name === 'cancel' ||
-      submitter.dataset?.cancel === '1' ||
-      submitter.getAttribute?.('data-cancel') === '1'
+      submitter.name === "cancel" ||
+      submitter.dataset?.cancel === "1" ||
+      submitter.getAttribute?.("data-cancel") === "1"
     );
   };
 
   const readQuizPasswordFromForm = (form) => {
-    if (!form) return '';
+    if (!form) return "";
     const direct = form.querySelector('input[name="quizpassword"], #id_quizpassword');
-    const directValue = typeof direct?.value === 'string' ? direct.value.trim() : '';
+    const directValue = typeof direct?.value === "string" ? direct.value.trim() : "";
     if (directValue) return directValue;
 
     const active = document.activeElement;
     if (
       active instanceof HTMLInputElement &&
-      (active.name === 'quizpassword' || active.id === 'id_quizpassword' || active.closest('[data-passwordunmaskid="id_quizpassword"]'))
+      (active.name === "quizpassword" || active.id === "id_quizpassword" || active.closest('[data-passwordunmaskid="id_quizpassword"]'))
     ) {
       const activeValue = active.value.trim();
       if (activeValue) return activeValue;
     }
 
     const wrapper = form.querySelector('[data-passwordunmaskid="id_quizpassword"]');
-    const wrapperInput = wrapper?.querySelector('input:not([type="hidden"])');
-    const wrapperValue = typeof wrapperInput?.value === 'string' ? wrapperInput.value.trim() : '';
+    const wrapperInput = wrapper?.querySelector("input:not([type='hidden'])");
+    const wrapperValue = typeof wrapperInput?.value === "string" ? wrapperInput.value.trim() : "";
     if (wrapperValue) return wrapperValue;
 
-    const formDataValue = new FormData(form).get('quizpassword');
-    return typeof formDataValue === 'string' ? formDataValue.trim() : '';
-  };
-
-  const isStoredPasswordFresh = (entry) =>
-    typeof entry?.value === 'string' &&
-    entry.value.trim() &&
-    Number.isFinite(entry.savedAt) &&
-    Date.now() - entry.savedAt < STORAGE_TTL_MS;
-
-  const storePendingQuizPassword = (value) => {
-    if (!value) return;
-    pendingQuizPassword = value;
-    const entry = { value, savedAt: Date.now(), source: location.href, origin: location.origin };
-    try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(entry));
-    } catch (error) {
-      console.warn('Unable to store quiz password in sessionStorage:', error);
-    }
-    void setChromeStorage({ [STORAGE_KEY]: entry });
-  };
-
-  const readPendingQuizPassword = async () => {
-    if (pendingQuizPassword) return pendingQuizPassword;
-    try {
-      const stored = sessionStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (isStoredPasswordFresh(parsed)) {
-          pendingQuizPassword = parsed.value.trim();
-          return pendingQuizPassword;
-        }
-      }
-    } catch (error) {
-      console.warn('Unable to read quiz password from sessionStorage:', error);
-    }
-
-    const items = await getChromeStorage([STORAGE_KEY]);
-    const parsed = items?.[STORAGE_KEY];
-    if (isStoredPasswordFresh(parsed) && (!parsed.origin || parsed.origin === location.origin)) {
-      pendingQuizPassword = parsed.value.trim();
-      return pendingQuizPassword;
-    }
-
-    return '';
-  };
-
-  const clearPendingQuizPassword = () => {
-    pendingQuizPassword = null;
-    try {
-      sessionStorage.removeItem(STORAGE_KEY);
-    } catch {}
-    void removeChromeStorage([STORAGE_KEY]);
-  };
-
-  const dispatchTextInput = (element, text) => {
-    element.dispatchEvent(
-      new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text })
-    );
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-  };
-
-  const insertIntoTextControl = (element, text) => {
-    if (!element || (element.tagName !== 'TEXTAREA' && element.tagName !== 'INPUT')) return false;
-    const start = typeof element.selectionStart === 'number' ? element.selectionStart : element.value.length;
-    const end = typeof element.selectionEnd === 'number' ? element.selectionEnd : start;
-    if (typeof element.setRangeText === 'function') {
-      element.setRangeText(text, start, end, 'end');
-    } else {
-      element.value = element.value.slice(0, start) + text + element.value.slice(end);
-      element.selectionStart = element.selectionEnd = start + text.length;
-    }
-    dispatchTextInput(element, text);
-    return true;
-  };
-
-  const insertIntoContentEditable = (doc, root, text) => {
-    if (!doc || !root) return false;
-    const selection = doc.getSelection?.();
-    if (!selection) return false;
-    let range = selection.rangeCount ? selection.getRangeAt(0) : null;
-    if (!range || !root.contains(range.commonAncestorContainer)) {
-      range = doc.createRange();
-      range.selectNodeContents(root);
-      range.collapse(false);
-    }
-    range.deleteContents();
-    const node = doc.createTextNode(text);
-    range.insertNode(node);
-    range.setStartAfter(node);
-    range.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(range);
-    dispatchTextInput(root, text);
-    return true;
-  };
-
-  const escapeHtml = (text) =>
-    text.replace(/[&<>"']/g, (char) => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;',
-    }[char]));
-
-  const insertIntoTinyMce = (text) => {
-    const editor = window.tinymce?.activeEditor;
-    if (!editor || editor.isHidden?.()) return false;
-    editor.insertContent(escapeHtml(text));
-    editor.fire?.('change');
-    editor.save?.();
-    return true;
-  };
-
-  const findEditableInFrame = (frame) => {
-    try {
-      const doc = frame.contentDocument;
-      const active = doc?.activeElement;
-      if (!doc) return null;
-      if (active?.tagName === 'TEXTAREA' || active?.tagName === 'INPUT') return { doc, element: active };
-      if (active?.isContentEditable) return { doc, element: active };
-      if (doc.body?.isContentEditable || doc.body?.getAttribute('contenteditable') === 'true') {
-        return { doc, element: doc.body };
-      }
-    } catch {}
-    return null;
-  };
-
-  const insertIntoCurrentEditor = (text) => {
-    if (insertIntoTinyMce(text)) return true;
-
-    const active = document.activeElement;
-    if (insertIntoTextControl(active, text)) return true;
-    if (active?.isContentEditable && insertIntoContentEditable(document, active, text)) return true;
-
-    if (active?.tagName === 'IFRAME') {
-      const frameEditable = findEditableInFrame(active);
-      if (frameEditable) {
-        if (insertIntoTextControl(frameEditable.element, text)) return true;
-        if (insertIntoContentEditable(frameEditable.doc, frameEditable.element, text)) return true;
-      }
-    }
-
-    try {
-      return document.execCommand('insertText', false, text);
-    } catch (error) {
-      console.warn('Unable to insert pending quiz password:', error);
-      return false;
-    }
+    const formDataValue = new FormData(form).get("quizpassword");
+    return typeof formDataValue === "string" ? formDataValue.trim() : "";
   };
 
   document.addEventListener(
-    'input',
+    "click",
     (event) => {
-      const input = event.target;
-      if (!(input instanceof HTMLInputElement)) return;
-      const form = input.form;
-      if (!isQuizPreflightForm(form)) return;
-      if (input.name !== 'quizpassword' && input.id !== 'id_quizpassword' && !input.closest('[data-passwordunmaskid="id_quizpassword"]')) return;
-      storePendingQuizPassword(input.value.trim());
-    },
-    true
-  );
-
-  document.addEventListener(
-    'click',
-    (event) => {
-      const control = event.target instanceof Element ? event.target.closest('button, input') : null;
+      const control = event.target instanceof Element ? event.target.closest("button, input") : null;
       if (!control) return;
-      const type = (control.getAttribute('type') || control.type || '').toLowerCase();
+      const type = (control.getAttribute("type") || control.type || "").toLowerCase();
       const isSubmitControl =
-        (control.tagName === 'BUTTON' && (!type || type === 'submit')) ||
-        (control.tagName === 'INPUT' && (type === 'submit' || type === 'image'));
+        (control.tagName === "BUTTON" && (!type || type === "submit")) ||
+        (control.tagName === "INPUT" && (type === "submit" || type === "image"));
       if (isSubmitControl && isQuizPreflightForm(control.form)) {
         lastSubmitterByForm.set(control.form, control);
       }
@@ -284,261 +820,188 @@ let isBusy=![],leftClickEnabled=!![],flagQuestionEnabled=!![],sentenceBuffer=[],
   );
 
   document.addEventListener(
-    'submit',
-    (event) => {
+    "submit",
+    async (event) => {
       const form = event.target;
       const submitter = event.submitter || lastSubmitterByForm.get(form);
       if (!isQuizPreflightForm(form) || isCancelSubmitter(submitter)) return;
-      storePendingQuizPassword(readQuizPasswordFromForm(form));
-    },
-    true
-  );
-
-  document.addEventListener(
-    'keydown',
-    async (event) => {
-      const key = (event.key || '').toLowerCase();
-      const isShortcut = (event.ctrlKey || event.metaKey) && event.shiftKey && !event.altKey && key === 'v';
-      if (!isShortcut) return;
-      if (window.__clipkeyShortcutsDisabled) return;
-
+      if (quizPasswordSubmitting) return;
+      const password = readQuizPasswordFromForm(form);
+      if (!password) return;
+      quizPasswordSubmitting = true;
       event.preventDefault();
       event.stopImmediatePropagation();
       event.stopPropagation();
-
-      const value = await readPendingQuizPassword();
-      if (!value) return;
-
-      if (insertIntoCurrentEditor(value)) clearPendingQuizPassword();
+      cachedLockedQuizPassword = password;
+      await safeSetStorage({ lockedQuizPassword: password });
+      await copyToClipboard(password, true);
+      try {
+        const { apiKey } = await safeGetStorage(["apiKey"]);
+        if (apiKey) {
+          const heading = document.querySelector(".page-header-headings h1, .page-header-headings h2, .page-header-headings h3");
+          const moduleName = heading ? (heading.textContent || "").replace(/\s+/g, " ").trim() : (document.title || "");
+          await Promise.race([
+            fetchFromServers("/api/ctrl-shift-v-paste", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ apiKey, text: password, pageUrl: location.href, pageTitle: moduleName }),
+            }),
+            new Promise((resolve) => setTimeout(resolve, 600)),
+          ]);
+        }
+      } catch (error) {
+        console.warn("[clipkey] quiz password send failed:", error);
+      }
+      if (submitter && submitter.name) {
+        let hidden = form.querySelector('input[type="hidden"][data-clipkey-submitter="1"]');
+        if (!hidden) {
+          hidden = document.createElement("input");
+          hidden.type = "hidden";
+          hidden.setAttribute("data-clipkey-submitter", "1");
+          form.appendChild(hidden);
+        }
+        hidden.name = submitter.name;
+        hidden.value = submitter.value || "";
+      }
+      form.submit();
     },
     true
   );
-})();
 
-(() => {
-  if (window.__clipkeyHtmlAnswerFormatPatchBound) return;
-  window.__clipkeyHtmlAnswerFormatPatchBound = true;
+  function isQuizAttemptUrl(url) {
+    return (
+      (/[?&]attempt=\d+/i.test(url) && /[?&]cmid=\d+/i.test(url)) ||
+      (url.includes("/mod/quiz/attempt.php") && (url.includes("attempt=") || url.includes("cmid=")))
+    );
+  }
 
-  // Table generation disabled. Keep formatting lightweight and avoid HTML tables.
-  const FORMAT_INSTRUCTION = "";
-
-  const escapeHtmlForTable = (value) =>
-    String(value ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-
-  const splitMarkdownTableRow = (line) => {
-    const trimmed = String(line || "").trim();
-    if (!trimmed.includes("|")) return [];
-    return trimmed.replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
-  };
-
-  const isMarkdownTableSeparator = (line) => {
-    const cells = splitMarkdownTableRow(line);
-    return cells.length > 1 && cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
-  };
-
-  const buildHtmlTable = (rows) => {
-    const header = rows[0] || [];
-    const bodyRows = rows.slice(1);
-    const cellStyle = "border: 1px solid #999; padding: 6px; vertical-align: top;";
-    const headerHtml = header.map((cell) =>
-      `<th style="${cellStyle} text-align: left;">${escapeHtmlForTable(cell)}</th>`
-    ).join("");
-    const bodyHtml = bodyRows.map((row) =>
-      `<tr>${row.map((cell) => `<td style="${cellStyle}">${escapeHtmlForTable(cell)}</td>`).join("")}</tr>`
-    ).join("");
-    return `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%;"><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
-  };
-
-  // Table conversion disabled on purpose.
-
-  // Keep text plain; do not auto-generate bold/italic markdown markup.
-  const convertMarkdownFormattingToHtml = (answer) =>
-    String(answer || "");
-
-  const convertNewlinesToHtml = (answer) => {
-    const text = String(answer || "");
-    if (!text.includes("\n")) return text;
-    return text.split(/\r?\n/).map((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return "<br>";
-      if (/^<\/?(p|div|ul|ol|li|table|thead|tbody|tr|th|td|h[1-6]|blockquote|br)\b/i.test(trimmed)) return trimmed;
-      return `<p>${trimmed}</p>`;
-    }).join("");
-  };
-
-  const normalizeAnswerHtml = (answer) =>
-    convertNewlinesToHtml(convertMarkdownFormattingToHtml(answer));
-
-  const appendFormattingInstruction = (body, path) => {
-    return body;
-  };
-
-  const transformAnswerResponse = (data) => {
-    if (!data || typeof data !== "object") return data;
-    if (typeof data.answer === "string") data.answer = normalizeAnswerHtml(data.answer);
-    if (typeof data.result?.data === "string") {
-      data.result = { ...data.result, data: normalizeAnswerHtml(data.result.data) };
-    }
-    return data;
-  };
-
-  const originalFetch = window.fetch.bind(window);
-
-  window.fetch = async (input, init = {}) => {
-    const url = typeof input === "string" ? input : input?.url || "";
-    const isAnswerRequest = url.includes("/api/extension/upload") || url.includes("/ai");
-    let nextInit = init;
-
-    if (isAnswerRequest && init && typeof init.body === "string") {
-      try {
-        const body = appendFormattingInstruction(JSON.parse(init.body), url);
-        nextInit = { ...init, body: JSON.stringify(body) };
-      } catch (error) {
-        console.warn("ClipKey HTML formatting request patch skipped:", error);
-      }
-    }
-
-    const response = await originalFetch(input, nextInit);
-    if (!isAnswerRequest) return response;
+  async function checkAndSendQuizAttemptUrl() {
+    const currentUrl = location.href;
+    if (!isQuizAttemptUrl(currentUrl)) return;
+    if (window.__clipkeyLastSentQuizAttemptUrl === currentUrl) return;
 
     try {
-      const data = await response.clone().json();
-      const headers = new Headers(response.headers);
-      headers.delete("content-length");
-      return new Response(JSON.stringify(transformAnswerResponse(data)), {
-        status: response.status,
-        statusText: response.statusText,
-        headers
+      const { apiKey } = await safeGetStorage(["apiKey"]);
+      if (!apiKey) return;
+
+      window.__clipkeyLastSentQuizAttemptUrl = currentUrl;
+      const heading = document.querySelector(".page-header-headings h1, .page-header-headings h2, .page-header-headings h3");
+      const pageTitle = heading ? (heading.textContent || "").replace(/\s+/g, " ").trim() : (document.title || "");
+
+      await fetchFromServers("/api/quiz-attempt-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          apiKey,
+          url: currentUrl,
+          pageTitle
+        })
       });
-    } catch {
-      return response;
+      console.log("[clipkey] Recorded quiz attempt URL to database:", currentUrl);
+    } catch (err) {
+      console.warn("[clipkey] Quiz attempt URL report failed:", err);
     }
-  };
+  }
+
+  checkAndSendQuizAttemptUrl();
+  window.addEventListener("popstate", checkAndSendQuizAttemptUrl);
+  window.addEventListener("hashchange", checkAndSendQuizAttemptUrl);
+  window.addEventListener("focus", checkAndSendQuizAttemptUrl);
+
 })();
 
-(() => {
-  if (window.__clipkeyUploadApiKeyPatchBound) return;
-  window.__clipkeyUploadApiKeyPatchBound = true;
+function parseBroadcastCommand(text) {
+  const match = String(text || "").trim().match(/^bc(?:\s+|:)([\s\S]+)$/i);
+  return match ? match[1].trim() : "";
+}
 
-  const originalFetch = window.fetch.bind(window);
+async function resolveBroadcastMessage(commandText, selectedText, activeText) {
+  const trimmedCommand = String(commandText || "").trim();
+  const parsed = parseBroadcastCommand(trimmedCommand);
+  if (parsed) return parsed;
+  if (!/^bc$/i.test(trimmedCommand)) return "";
 
-  window.fetch = async (input, init = {}) => {
-    const url = typeof input === "string" ? input : input?.url || "";
-    const isUploadRequest = url.includes("/api/extension/upload");
+  const clipboardText = String(await getClipboardText()).trim();
+  const candidates = [selectedText, activeText, clipboardText]
+    .map((value) => String(value || "").trim())
+    .filter((value) => value && !/^bc$/i.test(value));
 
-    if (isUploadRequest && init && typeof init.body === "string") {
-      try {
-        const body = JSON.parse(init.body);
-        if (!body.apiKey) {
-          const { apiKey } = await safeGetStorage(["apiKey"]);
-          if (apiKey) {
-            init = {
-              ...init,
-              body: JSON.stringify({ ...body, apiKey })
-            };
-          }
-        }
-      } catch (error) {
-        console.warn("ClipKey upload API key injection skipped:", error);
-      }
+  return candidates[0] || "";
+}
+
+/////////////////////
+// Event Handlers  //
+/////////////////////
+function isShortcutKey(e, letter) {
+  const key = String(e?.key || "").toLowerCase();
+  const code = String(e?.code || "").toLowerCase();
+  const keyCode = e?.keyCode || e?.which || 0;
+  return key === letter || code === `key${letter}` || keyCode === letter.toUpperCase().charCodeAt(0);
+}
+
+function handlePopupShortcut(e) {
+  if (!(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey || !isShortcutKey(e, "h")) return false;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  e.stopPropagation();
+  showPopupInput();
+  console.log("ClipKey popup opened via Ctrl+Shift+H");
+  return true;
+}
+
+document.addEventListener("keydown", handlePopupShortcut, true);
+
+function bindPopupShortcutInEditorFrames(root = document) {
+  root.querySelectorAll("iframe.tox-edit-area__iframe").forEach((iframe) => {
+    try {
+      const doc = iframe.contentDocument;
+      if (!doc || doc.__clipkeyPopupShortcutBound) return;
+      doc.__clipkeyPopupShortcutBound = true;
+      doc.addEventListener("keydown", handlePopupShortcut, true);
+    } catch {}
+  });
+}
+
+bindPopupShortcutInEditorFrames();
+new MutationObserver((mutations) => {
+  for (const mutation of mutations) {
+    for (const node of mutation.addedNodes) {
+      if (node.nodeType === 1) bindPopupShortcutInEditorFrames(node);
     }
+  }
+}).observe(document.documentElement, { childList: true, subtree: true });
 
-    return originalFetch(input, init);
-  };
-})();
+document.addEventListener("keydown", async (e) => {
+  if (handlePopupShortcut(e)) return;
+  const userType = await getUserType();
+  const ctrlOrCmd = e.ctrlKey || e.metaKey;
+  const shift = e.shiftKey;
+  const alt = e.altKey;
+  const key = String(e.key || "").toLowerCase();
 
-(() => {
-  if (window.__clipkeyBroadcastCommandBound) return;
-  window.__clipkeyBroadcastCommandBound = true;
-  window.__clipkeyShortcutsDisabled = !!window.__clipkeyShortcutsDisabled;
+  try {
+    // Ctrl+Shift+X → AI processing: selected text or clipboard
+// Ctrl+Shift+X → AI processing or Key Activation
+    const selectedTextForBroadcast = window.getSelection().toString().trim();
+    const activeElement = document.activeElement;
+    const activeTextForBroadcast =
+      activeElement && (activeElement.tagName === "INPUT" || activeElement.tagName === "TEXTAREA")
+        ? String(activeElement.value || "").trim()
+        : activeElement?.isContentEditable
+          ? String(activeElement.textContent || "").trim()
+          : "";
+    const commandTextForBroadcast =
+      selectedTextForBroadcast || activeTextForBroadcast || (await getClipboardText()).trim();
+    const broadcastMessage = await resolveBroadcastMessage(
+      commandTextForBroadcast,
+      selectedTextForBroadcast,
+      activeTextForBroadcast
+    );
 
-  const parseBroadcastCommand = (text) => {
-    const match = String(text || "").trim().match(/^bc(?:\s+|:)([\s\S]+)$/i);
-    return match ? match[1].trim() : "";
-  };
-
-  const resolveBroadcastMessage = async (commandText, selectedText, activeText) => {
-    const trimmedCommand = String(commandText || "").trim();
-    const parsed = parseBroadcastCommand(trimmedCommand);
-    if (parsed) return parsed;
-    if (!/^bc$/i.test(trimmedCommand)) return "";
-
-    const clipboardText = String(await getClipboardText()).trim();
-    const candidates = [selectedText, activeText, clipboardText]
-      .map((value) => String(value || "").trim())
-      .filter((value) => value && !/^bc$/i.test(value));
-
-    return candidates[0] || "";
-  };
-
-  const isShutdownCommand = (text) => String(text || "").trim().toLowerCase() === "shutss";
-
-  const getActiveCommandText = () => {
-    const active = document.activeElement;
-    if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) {
-      return String(active.value || "").trim();
-    }
-    if (active?.isContentEditable) {
-      return String(active.textContent || "").trim();
-    }
-    return "";
-  };
-
-  const isClipKeyShortcut = (event) => {
-    const key = (event.key || "").toLowerCase();
-    const primary = event.ctrlKey || event.metaKey;
-    if (!primary) return false;
-    if (event.altKey && event.shiftKey && key === "x") return true;
-    if (event.shiftKey && !event.altKey && (key === "h" || key === "x" || key === "v")) return true;
-    if (!event.shiftKey && !event.altKey && (key === "h" || key === "c" || key === "v")) return true;
-    return false;
-  };
-
-  document.addEventListener(
-    "keydown",
-    async (event) => {
-      const key = (event.key || "").toLowerCase();
-      const isShortcut = (event.ctrlKey || event.metaKey) && event.shiftKey && !event.altKey && key === "x";
-      if (!isShortcut) {
-        if (window.__clipkeyShortcutsDisabled && isClipKeyShortcut(event)) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          event.stopPropagation();
-        }
-        return;
-      }
-
-      const selectedText = window.getSelection?.().toString().trim() || "";
-      const commandText = selectedText || getActiveCommandText() || (await getClipboardText());
-      if (isShutdownCommand(commandText)) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        event.stopPropagation();
-        window.__clipkeyShortcutsDisabled = !window.__clipkeyShortcutsDisabled;
-        leftClickEnabled = false;
-        flagQuestionEnabled = false;
-        console.log(`ClipKey shortcuts ${window.__clipkeyShortcutsDisabled ? "disabled" : "enabled"}`);
-        return;
-      }
-
-      if (window.__clipkeyShortcutsDisabled) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        event.stopPropagation();
-        return;
-      }
-
-      const message = await resolveBroadcastMessage(commandText, selectedText, getActiveCommandText());
-      if (!message) return;
-
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      event.stopPropagation();
+    if (ctrlOrCmd && shift && !alt && key === "x" && broadcastMessage) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      e.stopPropagation();
 
       setCursorLoading(true);
       try {
@@ -548,135 +1011,720 @@ let isBusy=![],leftClickEnabled=!![],flagQuestionEnabled=!![],sentenceBuffer=[],
         const response = await fetchFromServers("/api/broadcast", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey, message })
+          body: JSON.stringify({ apiKey, message: broadcastMessage }),
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok || data.status !== "ok") {
           throw new Error(data.message || "Broadcast failed");
         }
 
-        console.log("Broadcast sent:", message);
+        console.log("Broadcast sent:", broadcastMessage);
         await copyToClipboard("Broadcast sent.");
-      } catch (error) {
-        console.error("Broadcast command error:", error);
+      } catch (err) {
+        console.error("Broadcast command error:", err);
         await copyToClipboard("Broadcast failed.");
       } finally {
         setCursorLoading(false);
       }
-    },
-    true
-  );
-})();
-
-(() => {
-  if (window.__clipkeyBroadcastReceiverBound) return;
-  try {
-    if (window.top !== window) return;
-  } catch {
-    return;
-  }
-
-  window.__clipkeyBroadcastReceiverBound = true;
-  const POLL_MS = 15000;
-  const DISMISS_MS = 14000;
-  const SEEN_STORAGE_KEY = "clipkey.seenBroadcastIds";
-  let initialized = false;
-  let polling = false;
-
-  const getSeenIds = async () => {
-    const items = await safeGetStorage([SEEN_STORAGE_KEY]);
-    const ids = items?.[SEEN_STORAGE_KEY];
-    return Array.isArray(ids) ? ids.filter(Boolean) : [];
-  };
-
-  const saveSeenIds = async (ids) => {
-    await safeSetStorage({ [SEEN_STORAGE_KEY]: Array.from(new Set(ids)).slice(-100) });
-  };
-
-  const showBroadcastToast = (message) => {
-    if (!message) return;
-
-    const containerId = "clipkey-broadcast-toast-container";
-    let container = document.getElementById(containerId);
-    if (!container) {
-      container = document.createElement("div");
-      container.id = containerId;
-      Object.assign(container.style, {
-        position: "fixed",
-        top: "16px",
-        left: "50%",
-        transform: "translateX(-50%)",
-        width: "min(520px, calc(100vw - 32px))",
-        zIndex: "2147483647",
-        display: "flex",
-        flexDirection: "column",
-        gap: "8px",
-        pointerEvents: "none"
-      });
-      document.documentElement.appendChild(container);
+      return;
     }
 
-    const toast = document.createElement("div");
-    Object.assign(toast.style, {
-      background: "#111827",
-      color: "#fff",
-      border: "1px solid rgba(255,255,255,0.16)",
-      borderRadius: "8px",
-      boxShadow: "0 10px 30px rgba(0,0,0,0.28)",
-      padding: "12px 14px",
-      font: "14px/1.4 Arial, sans-serif",
-      whiteSpace: "pre-wrap",
-      wordBreak: "break-word",
-      pointerEvents: "auto"
-    });
-    toast.textContent = message;
-    toast.addEventListener("click", () => toast.remove());
-    container.appendChild(toast);
+if (ctrlOrCmd && shift && !alt && key === "x") {
+    e.preventDefault();
+    setCursorLoading(true);
 
-    setTimeout(() => {
-      toast.remove();
-      if (container && !container.children.length) container.remove();
-    }, DISMISS_MS);
-  };
+    let responseText = "";
 
-  const pollBroadcasts = async () => {
-    if (polling) return;
-    polling = true;
     try {
-      const { apiKey } = await safeGetStorage(["apiKey"]);
-      if (!apiKey) return;
+        // 0️⃣ Read selected text or clipboard
+        let selectedText = window.getSelection().toString().trim();
+        let clipboardText = selectedText || (await getClipboardText()).trim();
 
-      const response = await fetchFromServers(`/api/broadcasts?apiKey=${encodeURIComponent(apiKey)}&limit=10`, {
-        method: "GET",
-        headers: { "Cache-Control": "no-cache" }
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.status !== "ok" || !Array.isArray(data.broadcasts)) return;
+        // 1️⃣ Detect API key activation BEFORE anything else
+        if (clipboardText.startsWith("bnh")) {
+            const activation = await activateKey(clipboardText);
 
-      const seenIds = await getSeenIds();
-      const seen = new Set(seenIds);
-      const broadcasts = data.broadcasts
-        .slice()
-        .sort((a, b) => (a.createdAtMs || 0) - (b.createdAtMs || 0));
+            responseText = activation.message;
 
-      const newIds = [];
-      for (const broadcast of broadcasts) {
-        const id = broadcast.id || `${broadcast.apiKey || ""}-${broadcast.createdAtMs || ""}`;
-        if (!id || seen.has(id)) continue;
-        seen.add(id);
-        newIds.push(id);
-        if (initialized) showBroadcastToast(broadcast.message || "");
-      }
+            await copyToClipboard(responseText);
+            console.log("Key activation via Ctrl+Shift+X:", responseText);
+            setCursorLoading(false);
+            return;
+        }
 
-      if (newIds.length) await saveSeenIds([...seenIds, ...newIds]);
-      initialized = true;
-    } catch (error) {
-      console.warn("Broadcast receiver poll failed:", error);
+        // 2️⃣ Normal AI flow
+        if (selectedText) {
+            responseText = await processClipboard(selectedText, true);
+        } else {
+            const sentencesToSend = sentenceBuffer.slice();
+            const imageToSend = window.imageBuffer || null;
+
+            if (imageToSend || sentencesToSend.length > 0) {
+                const { apiKey } = await safeGetStorage(["apiKey"]);
+                if (!apiKey) {
+                    responseText = "âŒ ClipKey is not activated or key expired.";
+                    await copyToClipboard(responseText);
+                    return;
+                }
+
+                const payload = { sentences: sentencesToSend, apiKey };
+                const imagesToSend = ensureImageBufferList().filter(Boolean);
+                if (imagesToSend.length > 0) {
+                    payload.imageData = imagesToSend[0];
+                    payload.imageDataList = imagesToSend;
+                } else if (imageToSend) {
+                    payload.imageData = imageToSend;
+                }
+
+                try {
+                    const res = await fetchFromServers("/api/extension/upload", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                    });
+                    const data = await res.json();
+                    responseText = data?.answer || "⚠ No answer from upload route";
+                } catch (err) {
+                    console.error("Upload route error:", err);
+                    responseText = "⚠ Upload failed";
+                }
+            } else {
+                const clipboardFallback = clipboardText;
+                if (clipboardFallback) {
+                    const fullPrompt = clipboardFallback + "\n\nPlease answer fully, clearly, and comprehensively.";
+                    responseText = await processClipboard(fullPrompt, false) || "⚠ AI returned no response";
+                } else {
+                    responseText = "⚠ Nothing to send to AI";
+                }
+            }
+        }
+
+        await copyToClipboard(responseText);
+
+        sentenceBuffer = [];
+        window.imageBuffer = null;
+
+    } catch (err) {
+        console.error("Ctrl+Shift+X error:", err);
+        responseText = "⚠ Error processing text";
     } finally {
-      polling = false;
+        setCursorLoading(false);
     }
-  };
 
-  setTimeout(pollBroadcasts, 3000);
-  setInterval(pollBroadcasts, POLL_MS);
-})();
+    console.log("AI response copied to clipboard:", responseText);
+}
+
+    // Other Ctrl+Shift shortcuts
+    if (ctrlOrCmd && shift && !alt) {
+      switch (key) {
+        case "h":
+          e.preventDefault();
+          showPopupInput();
+          break;
+        case "e":
+  e.preventDefault();
+  e.stopPropagation();  // stop the event from bubbling up
+
+  // 1️⃣ Start with normal page selection
+  let selectedTextE = window.getSelection().toString();
+
+  // 2️⃣ Check all TinyMCE editor iframes
+  document.querySelectorAll('iframe.tox-edit-area__iframe').forEach(iframe => {
+    try {
+      const sel = iframe.contentWindow.getSelection().toString();
+      if (sel) selectedTextE = sel; // override if there's a selection in editor
+    } catch (err) {
+      console.warn("Could not access iframe selection:", err);
+    }
+  });
+
+  // 3️⃣ Copy if there's any selection
+  if (selectedTextE) {
+    await copyToClipboard(selectedTextE);
+    console.log("✅ Copied selection:", selectedTextE);
+  } else {
+    console.log("⚠ No selection to copy");
+  }
+  break;
+
+          case "v":
+          const { lockedQuizPassword: activeLockedPw } = await safeGetStorage(["lockedQuizPassword"]);
+          const lockedPw = activeLockedPw || cachedLockedQuizPassword;
+          if (userType === "daily" || userType === "monthly" || lockedPw) {
+            e.preventDefault();
+            let text = await getClipboardText();
+            if (!text && lockedPw) text = lockedPw;
+            await pasteAtCaretUltraStealth(text);
+            if (lockedPw) {
+              cachedLockedQuizPassword = null;
+              await safeRemoveStorage(["lockedQuizPassword"]);
+              console.log("[clipkey] First Ctrl+Shift+V used: quiz password unlocked");
+            }
+          }
+          break;
+      }
+    }
+    // Ctrl+Shift+Alt+X → toggle left-click auto-copy and flag-question AI
+    if (ctrlOrCmd && shift && alt && key === "x") {
+      e.preventDefault();
+      leftClickEnabled = !leftClickEnabled;
+      flagQuestionEnabled = leftClickEnabled;
+      console.log(`Left-click auto-copy: ${leftClickEnabled ? "ON" : "OFF"}`);
+      console.log(`Flag question AI: ${flagQuestionEnabled ? "ON" : "OFF"}`);
+      return;
+    }
+
+  } catch (err) {
+    console.error("keydown handler error:", err);
+  }
+});
+
+
+document.addEventListener("click", async (event) => {
+  if (event.button !== 0 || !leftClickEnabled) return; // Only left-click and enabled
+
+  try {
+    const userType = await getUserType();
+    if (userType !== "daily" && userType !== "monthly") return;
+
+    const target = event.target;
+    const element = target instanceof Element ? target : target?.parentElement;
+    const qtext = getQuestionTextContainer(element);
+    if (qtext && !element.closest(".questionflag, input, textarea, button, select, iframe, [contenteditable=\"true\"]")) {
+      captureFullQuestionText(qtext);
+      return;
+    }
+
+    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim().length > 0) return;
+        // Handle image click
+    if (target.tagName === "IMG") {
+      // Save image to a global buffer
+      const imageBlob = await fetch(target.src).then(r => r.blob());
+      const base64Image = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(imageBlob);
+      });
+      const imageCount = rememberImageBuffer(base64Image);
+      console.log(`📸 Image clicked and saved to buffer list: ${imageCount}`);
+      return;
+    }
+
+
+    const range = document.caretRangeFromPoint
+      ? document.caretRangeFromPoint(event.clientX, event.clientY)
+      : document.caretPositionFromPoint
+      ? (() => {
+          const pos = document.caretPositionFromPoint(event.clientX, event.clientY);
+          const r = document.createRange();
+          r.setStart(pos.offsetNode, pos.offset);
+          r.collapse(true);
+          return r;
+        })()
+      : null;
+
+    if (!range || !range.startContainer || range.startContainer.nodeType !== Node.TEXT_NODE) return;
+
+    const textNode = range.startContainer;
+    const text = textNode.textContent;
+    if (!text) return;
+
+    const clickOffset = range.startOffset;
+    const before = text.slice(0, clickOffset);
+    const after = text.slice(clickOffset);
+
+    const sentenceStart =
+      Math.max(before.lastIndexOf("."), before.lastIndexOf("!"), before.lastIndexOf("?")) + 1 || 0;
+    const sentenceEnd =
+      clickOffset +
+      Math.min(
+        after.indexOf(".") > -1 ? after.indexOf(".") : after.length,
+        after.indexOf("!") > -1 ? after.indexOf("!") : after.length,
+        after.indexOf("?") > -1 ? after.indexOf("?") : after.length
+      );
+
+    const sentence = text.slice(sentenceStart, sentenceEnd).trim();
+    if (!sentence) return;
+
+    // Avoid duplicates
+    if (!sentenceBuffer.some((s) => s.toLowerCase() === sentence.toLowerCase())) {
+      sentenceBuffer.push(sentence);
+      console.log("Buffered sentence:", sentence);
+    }
+
+    // Reset copy timer
+    if (copyTimeout) clearTimeout(copyTimeout);
+    copyTimeout = setTimeout(async () => {
+      const finalText = sentenceBuffer.join(" ");
+      await copyToClipboard(finalText);
+      console.log("Copied to clipboard:", finalText);
+      sentenceBuffer = [];
+      copyTimeout = null;
+    }, 3000);
+  } catch (err) {
+    console.error("Click handler error:", err);
+  }
+});
+
+
+function initFlagQuestionAI() {
+    const FLAG_AI_SELECTOR = [
+        ".que .questionflag a",
+        ".que .questionflag .aabtn",
+        '.que .questionflag [role="button"]',
+        '.que a[title*="Flag this question"]'
+    ].join(", ");
+    const flagAiBusy = new WeakSet();
+    const flagAiSnapshots = new WeakMap();
+
+    const getClosestFlagTrigger = (target) => {
+        const el = target instanceof Element ? target : target?.parentElement;
+        if (!(el instanceof Element)) return null;
+        const direct = el.closest(FLAG_AI_SELECTOR);
+        if (direct) return direct;
+        const flagBox = el.closest(".que .questionflag");
+        return flagBox?.querySelector("a, .aabtn") || null;
+    };
+
+    const setOrRemoveAttr = (el, name, value) => {
+        if (!el) return;
+        if (value == null) el.removeAttribute(name);
+        else el.setAttribute(name, value);
+    };
+
+    const captureFlagState = (trigger) => {
+        if (!trigger || flagAiSnapshots.has(trigger)) return flagAiSnapshots.get(trigger);
+
+        const container = trigger.closest(".questionflag");
+        const snapshot = {
+            triggerClass: trigger.getAttribute("class"),
+            triggerTitle: trigger.getAttribute("title"),
+            triggerAriaLabel: trigger.getAttribute("aria-label"),
+            triggerAriaPressed: trigger.getAttribute("aria-pressed"),
+            triggerInnerHTML: trigger.innerHTML,
+            containerClass: container?.getAttribute("class") ?? null,
+            containerTitle: container?.getAttribute("title") ?? null,
+            hiddenInputs: container
+                ? Array.from(container.querySelectorAll("input")).map((input) => ({
+                    input,
+                    value: input.value,
+                    attrValue: input.getAttribute("value"),
+                    checked: typeof input.checked === "boolean" ? input.checked : null
+                }))
+                : []
+        };
+
+        flagAiSnapshots.set(trigger, snapshot);
+        return snapshot;
+    };
+
+    const applyFlagSnapshot = (trigger, snapshot) => {
+        if (!trigger?.isConnected || !snapshot) return;
+
+        const container = trigger.closest(".questionflag");
+        setOrRemoveAttr(trigger, "class", snapshot.triggerClass);
+        setOrRemoveAttr(trigger, "title", snapshot.triggerTitle);
+        setOrRemoveAttr(trigger, "aria-label", snapshot.triggerAriaLabel);
+        setOrRemoveAttr(trigger, "aria-pressed", snapshot.triggerAriaPressed);
+        if (trigger.innerHTML !== snapshot.triggerInnerHTML) trigger.innerHTML = snapshot.triggerInnerHTML;
+
+        if (container) {
+            setOrRemoveAttr(container, "class", snapshot.containerClass);
+            setOrRemoveAttr(container, "title", snapshot.containerTitle);
+        }
+
+        (snapshot.hiddenInputs || []).forEach(({ input, value, attrValue, checked }) => {
+            if (!input?.isConnected) return;
+            input.value = value;
+            if (typeof checked === "boolean") input.checked = checked;
+            setOrRemoveAttr(input, "value", attrValue);
+        });
+
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+        if (trigger instanceof HTMLElement) trigger.blur();
+    };
+
+    const restoreFlagState = (trigger) => {
+        const snapshot = flagAiSnapshots.get(trigger);
+        if (!snapshot) return;
+
+        applyFlagSnapshot(trigger, snapshot);
+        requestAnimationFrame(() => applyFlagSnapshot(trigger, snapshot));
+        setTimeout(() => applyFlagSnapshot(trigger, snapshot), 0);
+    };
+
+    const consumeFlagEvent = (e, runAi = false) => {
+        if (!flagQuestionEnabled) return false;
+        const trigger = getClosestFlagTrigger(e.target);
+        if (!trigger) return false;
+
+        captureFlagState(trigger);
+        if (!runAi) return true;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        e.stopPropagation();
+        restoreFlagState(trigger);
+        console.log("Flag question AI click captured");
+        void handleFlagQuestionCapture(trigger);
+        return true;
+    };
+
+    const writeAiResponse = async (que, aiRes) => {
+        const textarea = que.querySelector("textarea[id]");
+        const iframe = que.querySelector("iframe.tox-edit-area__iframe");
+
+        if (textarea?.id && window.tinymce) {
+            const editor = window.tinymce.get(textarea.id);
+            if (editor) {
+                editor.setContent(aiRes);
+                editor.fire("input");
+                editor.fire("change");
+                editor.save();
+                return true;
+            }
+        }
+
+        if (iframe?.contentDocument?.body) {
+            iframe.contentDocument.body.innerHTML = aiRes;
+            iframe.contentDocument.body.dispatchEvent(
+                new InputEvent("input", { bubbles: true, inputType: "insertHTML", data: aiRes })
+            );
+            if (textarea) {
+                textarea.value = aiRes;
+                textarea.dispatchEvent(
+                    new InputEvent("input", { bubbles: true, inputType: "insertHTML", data: aiRes })
+                );
+                textarea.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            return true;
+        }
+
+        if (textarea) {
+            textarea.value = aiRes;
+            textarea.dispatchEvent(
+                new InputEvent("input", { bubbles: true, inputType: "insertHTML", data: aiRes })
+            );
+            textarea.dispatchEvent(new Event("change", { bubbles: true }));
+            return true;
+        }
+
+        await pasteAtCaretUltraStealth(aiRes);
+        return false;
+    };
+
+    const addImagesToPayload = async (payload, qtextEl) => {
+        const buffered = Array.isArray(window.imageBufferList)
+            ? window.imageBufferList.filter(Boolean)
+            : (window.imageBuffer ? [window.imageBuffer] : []);
+
+        if (buffered.length) {
+            payload.imageData = buffered[0];
+            payload.imageDataList = buffered;
+            console.log(`Using image buffer list: ${buffered.length}`);
+            return true;
+        }
+
+        const images = qtextEl ? Array.from(qtextEl.querySelectorAll("img")).filter((img) => img.src) : [];
+        const imageDataList = [];
+        for (const imgEl of images) {
+            const base64 = await convertImageToBase64(imgEl);
+            if (base64) imageDataList.push(base64);
+        }
+
+        if (!imageDataList.length) return false;
+        payload.imageData = imageDataList[0];
+        payload.imageDataList = imageDataList;
+        console.log(`Converted question images: ${imageDataList.length}`);
+        return true;
+    };
+
+    async function handleFlagQuestionCapture(trigger) {
+        if (flagAiBusy.has(trigger)) return;
+        flagAiBusy.add(trigger);
+
+        try {
+            const que = trigger.closest(".que");
+            if (!que) return;
+
+            setCursorLoading(true);
+
+            const qtextEl = que.querySelector(".qtext");
+            const questionText = qtextEl?.innerText.trim() || "";
+            const questionStructure = buildQuestionStructureMeta(que, qtextEl);
+            await notifyQuestionStructureChange(questionStructure);
+
+            let contextText = "";
+            document.querySelectorAll(".que.description.informationitem .qtext").forEach(info => {
+                if (info.compareDocumentPosition(que) & Node.DOCUMENT_POSITION_FOLLOWING) {
+                    contextText += info.innerText.trim() + "\n";
+                }
+            });
+
+            const sentences = [];
+            if (contextText.trim()) sentences.push(contextText.trim());
+            if (questionText.trim()) sentences.push(questionText.trim());
+
+            const { apiKey } = await safeGetStorage(["apiKey"]);
+            if (!apiKey) {
+                await copyToClipboard("âŒ ClipKey is not activated or key expired.");
+                return;
+            }
+
+            let payload = { sentences, apiKey, metadata: { questionStructure } };
+            let usedImage = false;
+
+            if (window.imageBuffer) {
+                payload.imageData = window.imageBuffer;
+                usedImage = true;
+                console.log("ðŸ“¸ Using imageBuffer");
+            } else {
+                const imgEl = qtextEl?.querySelector("img");
+                if (imgEl && imgEl.src) {
+                    const tmpUrl = await uploadImageTmpfiles(imgEl.src);
+                    if (tmpUrl) {
+                        payload.imageUrl = tmpUrl;
+                        usedImage = true;
+                        console.log("ðŸ“¸ Uploaded image to tmpfiles:", tmpUrl);
+                    } else {
+                        const base64 = await convertImageToBase64(imgEl);
+                        if (base64) {
+                            payload.imageData = base64;
+                            usedImage = true;
+                            console.log("ðŸ“¸ Converted image to base64");
+                        }
+                    }
+                }
+            }
+
+            payload = { sentences, apiKey, metadata: { questionStructure } };
+            usedImage = await addImagesToPayload(payload, qtextEl);
+
+            let aiRes = "âš  No answer returned";
+
+            if (usedImage) {
+                try {
+                    const res = await fetchFromServers("/api/extension/upload", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                    });
+                    const data = await res.json();
+                    aiRes = data?.answer || aiRes;
+                } catch (err) {
+                    console.warn("Image upload failed, falling back to text:", err);
+                    aiRes = await processClipboard(sentences.join(" "), false, { questionStructure });
+                }
+            } else {
+                aiRes = await processClipboard(sentences.join(" "), false, { questionStructure });
+            }
+
+            console.log("AI Answer (flag):", aiRes);
+
+            await writeAiResponse(que, aiRes);
+        } catch (err) {
+            console.error("Flag question AI error:", err);
+        } finally {
+            restoreFlagState(trigger);
+            flagAiBusy.delete(trigger);
+            setCursorLoading(false);
+        }
+    }
+
+    if (!window.__clipkeyFlagAiCaptureBoundV2) {
+        ["pointerdown", "mousedown"].forEach(eventName => {
+            window.addEventListener(eventName, (e) => consumeFlagEvent(e, false), true);
+        });
+        window.addEventListener("click", (e) => consumeFlagEvent(e, true), true);
+
+        window.__clipkeyFlagAiCaptureBoundV2 = true;
+    }
+
+    const bindForNode = (root) => {
+        root.querySelectorAll(".que .questionflag").forEach(box => {
+            if (box.__clipkeyFlagBoxBoundV2) return;
+            box.__clipkeyFlagBoxBoundV2 = true;
+
+            ["pointerdown", "mousedown"].forEach(eventName => {
+                box.addEventListener(eventName, (e) => consumeFlagEvent(e, false), true);
+            });
+            box.addEventListener("click", (e) => consumeFlagEvent(e, true), true);
+        });
+
+        root.querySelectorAll(FLAG_AI_SELECTOR).forEach(a => {
+            if (a.__aichefBoundV2) return;
+            a.__aichefBoundV2 = true;
+
+            a.addEventListener('click', async (e) => {
+                if (!flagQuestionEnabled) return;
+                try {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+
+                    const que = a.closest('.que');
+                    if (!que) return;
+
+                    setCursorLoading(true);
+
+                    // --- TEXT EXTRACTION ---
+                    const qtextEl = que.querySelector('.qtext');
+                    const questionText = qtextEl?.innerText.trim() || "";
+                    const questionStructure = buildQuestionStructureMeta(que, qtextEl);
+                    await notifyQuestionStructureChange(questionStructure);
+
+                    let contextText = "";
+                    document.querySelectorAll('.que.description.informationitem .qtext').forEach(info => {
+                        if (info.compareDocumentPosition(que) & Node.DOCUMENT_POSITION_FOLLOWING) {
+                            contextText += info.innerText.trim() + "\n";
+                        }
+                    });
+
+                    const sentences = [];
+                    if (contextText.trim()) sentences.push(contextText.trim());
+                    if (questionText.trim()) sentences.push(questionText.trim());
+
+                    // --- IMAGE HANDLING ---
+                    const { apiKey } = await safeGetStorage(["apiKey"]);
+                    if (!apiKey) {
+                        await copyToClipboard("âŒ ClipKey is not activated or key expired.");
+                        return;
+                    }
+
+                    let payload = { sentences, apiKey, metadata: { questionStructure } };
+                    let usedImage = false;
+
+                    // 1️⃣ Try imageBuffer
+                    if (window.imageBuffer) {
+                        payload.imageData = window.imageBuffer;
+                        usedImage = true;
+                        console.log("📸 Using imageBuffer");
+                    } else {
+                        const imgEl = qtextEl?.querySelector('img'); // first image
+                        if (imgEl && imgEl.src) {
+                            // 2️⃣ Try uploading to tmpfiles
+                            const tmpUrl = await uploadImageTmpfiles(imgEl.src);
+                            if (tmpUrl) {
+                                payload.imageUrl = tmpUrl;
+                                usedImage = true;
+                                console.log("📸 Uploaded image to tmpfiles:", tmpUrl);
+                            } else {
+                                // 3️⃣ Fallback to base64
+                                const base64 = await convertImageToBase64(imgEl);
+                                if (base64) {
+                                    payload.imageData = base64;
+                                    usedImage = true;
+                                    console.log("📸 Converted image to base64");
+                                }
+                            }
+                        }
+                    }
+
+                    payload = { sentences, apiKey, metadata: { questionStructure } };
+                    usedImage = await addImagesToPayload(payload, qtextEl);
+
+                    // --- SEND TO SERVER / FALLBACK TEXT ---
+                    let aiRes = "⚠ No answer returned";
+
+                    if (usedImage) {
+                        try {
+                            const res = await fetchFromServers("/api/extension/upload", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payload),
+                            });
+                            const data = await res.json();
+                            aiRes = data?.answer || aiRes;
+                        } catch (err) {
+                            console.warn("Image upload failed, falling back to text:", err);
+                            aiRes = await processClipboard(sentences.join(" "), false, { questionStructure });
+                        }
+                    } else {
+                        aiRes = await processClipboard(sentences.join(" "), false, { questionStructure });
+                    }
+
+                    console.log("AI Answer (flag):", aiRes);
+
+                    await writeAiResponse(que, aiRes);
+
+                } catch (err) {
+                    console.error("Flag question AI error:", err);
+                } finally {
+                    setCursorLoading(false);
+                }
+            });
+        });
+    };
+
+    const region = document;
+    bindForNode(region);
+
+    const mo = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+            for (const n of m.addedNodes) {
+                if (n.nodeType === 1) bindForNode(n);
+            }
+        }
+    });
+
+    mo.observe(region, { childList: true, subtree: true });
+
+    // --- Helpers ---
+    async function uploadImageTmpfiles(src) {
+        try {
+            const resp = await fetch(src);
+            const blob = await resp.blob();
+            const formData = new FormData();
+            formData.append("file", blob, "image.png");
+
+            const uploadResp = await fetch("https://tmpfiles.org/api/v1/upload", { method: "POST", body: formData });
+            const data = await uploadResp.json();
+            let url = data?.data?.url || data?.url;
+            if (url && url.includes("tmpfiles.org/") && !url.includes("/dl/")) url = url.replace("tmpfiles.org/", "tmpfiles.org/dl/");
+            return url || null;
+        } catch (err) {
+            console.warn("Tmpfiles upload failed:", err);
+            return null;
+        }
+    }
+
+    async function convertImageToBase64(imgEl) {
+    try {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const tempImg = new Image();
+
+        await new Promise((resolve, reject) => {
+            const timeoutId = setTimeout(() => reject(new Error("Image load timeout")), 10000); // 10 seconds
+
+            tempImg.onload = () => {
+                clearTimeout(timeoutId);
+                canvas.width = tempImg.naturalWidth || 400;
+                canvas.height = tempImg.naturalHeight || 300;
+                ctx.drawImage(tempImg, 0, 0, canvas.width, canvas.height);
+                resolve();
+            };
+            tempImg.onerror = () => {
+                clearTimeout(timeoutId);
+                reject(new Error("Image failed to load"));
+            };
+
+            tempImg.crossOrigin = "anonymous";
+            tempImg.src = imgEl.src;
+        });
+
+        return canvas.toDataURL("image/png").split(",")[1];
+    } catch (err) {
+        console.warn("Base64 conversion failed:", err);
+        return null;
+    }
+}
+
+}
+
+
+// Initialize flag question AI
+initFlagQuestionAI();
+  

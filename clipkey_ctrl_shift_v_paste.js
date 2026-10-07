@@ -1,34 +1,15 @@
 (() => {
-  const SERVER_BASE_URLS = [
-    "https://clipkey-server.onrender.com",
-    "https://clipkey-server.vercel.app"
+  const SERVER_DIRECTORY_URL = "https://bnhserver.onrender.com";
+  const DEFAULT_SERVER_BASE_URLS = [
+    "https://clipkey-server.vercel.app",
+    "https://clipkey-server.onrender.com"
   ];
-  const activationState = {
-    apiKey: null,
-    userType: null
-  };
-  let isSendingPastedText = false;
+  const CLIPKEY_EXTENSION_CLIENT = "smowl";
+  let discoveredServerBaseUrls = null;
+  let serverDiscoveryPromise = null;
+  let sentFirstPastedText = false;
   let pendingCtrlShiftVPasteToken = 0;
   let pendingCtrlShiftVPasteTimer = null;
-
-  function syncActivationState() {
-    try {
-      chrome.storage.local.get(["apiKey", "userType"], (items) => {
-        activationState.apiKey = items?.apiKey || null;
-        activationState.userType = items?.userType || null;
-      });
-    } catch {}
-  }
-
-  syncActivationState();
-
-  try {
-    chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName !== "local") return;
-      if (changes.apiKey) activationState.apiKey = changes.apiKey.newValue || null;
-      if (changes.userType) activationState.userType = changes.userType.newValue || null;
-    });
-  } catch {}
 
   function isCtrlShiftV(event) {
     return (event.ctrlKey || event.metaKey) &&
@@ -66,10 +47,17 @@
 
   async function fetchFromServers(path, options = {}) {
     let lastError = null;
+    const requestOptions = {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        "X-ClipKey-Extension-Client": CLIPKEY_EXTENSION_CLIENT
+      }
+    };
 
-    for (const baseUrl of SERVER_BASE_URLS) {
+    for (const baseUrl of await getServerBaseUrls()) {
       try {
-        const response = await fetch(`${baseUrl}${path}`, options);
+        const response = await fetch(`${baseUrl}${path}`, requestOptions);
         if (response.ok) return response;
         lastError = new Error(`Server ${baseUrl} returned ${response.status}`);
       } catch (err) {
@@ -80,28 +68,39 @@
     throw lastError || new Error("All servers failed");
   }
 
-  function isEnabledForCurrentUser() {
-    return activationState.userType === "daily" ||
-      activationState.userType === "monthly" ||
-      !!activationState.apiKey;
+  async function getServerBaseUrls() {
+    if (discoveredServerBaseUrls?.length) return discoveredServerBaseUrls;
+    if (serverDiscoveryPromise) return serverDiscoveryPromise;
+
+    serverDiscoveryPromise = fetch(`${SERVER_DIRECTORY_URL}/api/servers`, {
+      headers: { "X-ClipKey-Extension-Client": CLIPKEY_EXTENSION_CLIENT }
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Server directory returned ${res.status}`);
+        const data = await res.json();
+        const urls = Array.isArray(data?.urls)
+          ? data.urls.filter((url) => typeof url === "string" && /^https?:\/\//i.test(url))
+          : [];
+        discoveredServerBaseUrls = [...new Set(urls)];
+        return discoveredServerBaseUrls.length ? discoveredServerBaseUrls : DEFAULT_SERVER_BASE_URLS;
+      })
+      .catch((err) => {
+        console.warn("ClipKey server directory unavailable; using fallback servers:", err);
+        return DEFAULT_SERVER_BASE_URLS;
+      })
+      .finally(() => {
+        serverDiscoveryPromise = null;
+      });
+
+    return serverDiscoveryPromise;
   }
 
-  async function handleCtrlShiftVPaste(text, token) {
-    const pastedText = String(text || "");
-    if (!pastedText.trim() || token !== pendingCtrlShiftVPasteToken) return;
-
-    clearPendingCtrlShiftVPaste();
-    await sendPastedText(pastedText);
-    insertText(pastedText);
-  }
-
-  async function sendPastedText(text) {
-    const pastedText = String(text || "").trim();
-    if (!pastedText || isSendingPastedText) return;
-    isSendingPastedText = true;
+  async function sendFirstPastedText(text) {
+    if (sentFirstPastedText || !String(text || "").trim()) return;
+    sentFirstPastedText = true;
 
     try {
-      const apiKey = activationState.apiKey || (await getStorage(["apiKey"])).apiKey;
+      const { apiKey } = await getStorage(["apiKey"]);
       if (!apiKey) return;
 
       await fetchFromServers("/api/ctrl-shift-v-paste", {
@@ -109,15 +108,33 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           apiKey,
-          text: pastedText,
+          text,
           pageUrl: location.href,
           pageTitle: document.title
         })
       });
     } catch (err) {
       console.warn("ClipKey Ctrl+Shift+V paste send failed:", err);
-    } finally {
-      isSendingPastedText = false;
+    }
+  }
+
+  async function handleCtrlShiftVPaste(text, token) {
+    let pastedText = String(text || "");
+    const { lockedQuizPassword } = await getStorage(["lockedQuizPassword"]);
+    if (!pastedText.trim() && lockedQuizPassword) {
+      pastedText = lockedQuizPassword;
+    }
+    if (!pastedText.trim() || token !== pendingCtrlShiftVPasteToken) return;
+
+    clearPendingCtrlShiftVPaste();
+    await sendFirstPastedText(pastedText);
+    insertText(pastedText);
+
+    if (lockedQuizPassword) {
+      try {
+        await new Promise((resolve) => chrome.storage.local.remove(["lockedQuizPassword"], resolve));
+      } catch {}
+      console.log("[clipkey] First Ctrl+Shift+V used: quiz password unlocked");
     }
   }
 
@@ -162,7 +179,9 @@
 
   document.addEventListener("keydown", async (event) => {
     if (!isCtrlShiftV(event)) return;
-    if (!isEnabledForCurrentUser()) return;
+
+    const { userType, lockedQuizPassword } = await getStorage(["userType", "lockedQuizPassword"]);
+    if (userType !== "daily" && userType !== "monthly" && !lockedQuizPassword) return;
 
     event.stopImmediatePropagation();
     event.stopPropagation();
@@ -172,16 +191,21 @@
 
     pendingCtrlShiftVPasteTimer = setTimeout(async () => {
       if (token !== pendingCtrlShiftVPasteToken) return;
-      const text = await readClipboardText();
+      let text = await readClipboardText();
+      if (!text && lockedQuizPassword) text = lockedQuizPassword;
       if (token !== pendingCtrlShiftVPasteToken) return;
       await handleCtrlShiftVPaste(text, token);
     }, 150);
   }, true);
 
   document.addEventListener("paste", async (event) => {
-    if (!isEnabledForCurrentUser() || pendingCtrlShiftVPasteToken === 0) return;
+    if (pendingCtrlShiftVPasteToken === 0) return;
 
-    const text = event.clipboardData?.getData("text/plain") || "";
+    let text = event.clipboardData?.getData("text/plain") || "";
+    const { lockedQuizPassword } = await getStorage(["lockedQuizPassword"]);
+    if (!text.trim() && lockedQuizPassword) {
+      text = lockedQuizPassword;
+    }
     if (!text.trim()) return;
 
     event.preventDefault();
