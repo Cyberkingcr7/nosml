@@ -1,6 +1,6 @@
 let isBusy = false;
 let leftClickEnabled = true;
-let flagQuestionEnabled = true;
+let tinyMceAnswerEnabled = true;
 let sentenceBuffer = [];
 let copyTimeout = null;
 
@@ -1214,13 +1214,11 @@ if (ctrlOrCmd && shift && !alt && key === "x") {
 
       }
     }
-    // Ctrl+Shift+Alt+X → toggle left-click auto-copy and flag-question AI
+    // Ctrl+Shift+Alt+X -> toggle left-click auto-copy and TinyMCE answer trigger
     if (ctrlOrCmd && shift && alt && key === "x") {
       e.preventDefault();
       leftClickEnabled = !leftClickEnabled;
-      flagQuestionEnabled = leftClickEnabled;
       console.log(`Left-click auto-copy: ${leftClickEnabled ? "ON" : "OFF"}`);
-      console.log(`Flag question AI: ${flagQuestionEnabled ? "ON" : "OFF"}`);
       return;
     }
 
@@ -1240,7 +1238,7 @@ document.addEventListener("click", async (event) => {
     const target = event.target;
     const element = target instanceof Element ? target : target?.parentElement;
     const qtext = getQuestionTextContainer(element);
-    if (qtext && !element.closest(".questionflag, input, textarea, button, select, iframe, [contenteditable=\"true\"]")) {
+    if (qtext && !element.closest("input, textarea, button, select, iframe, [contenteditable=\"true\"]")) {
       captureFullQuestionText(qtext);
       return;
     }
@@ -1321,23 +1319,21 @@ document.addEventListener("click", async (event) => {
 });
 
 
-function initFlagQuestionAI() {
-    const FLAG_AI_SELECTOR = [
-        ".que .questionflag a",
-        ".que .questionflag .aabtn",
-        '.que .questionflag [role="button"]',
-        '.que a[title*="Flag this question"]'
+function initTinyMceAnswer() {
+    const TINYMCE_TRIGGER_SELECTOR = [
+        ".tox-statusbar__branding a",
+        ".tox-statusbar__branding",
+        'a[href*="tiny.cloud/powered-by-tiny"]'
     ].join(", ");
-    const flagAiBusy = new WeakSet();
-    const flagAiSnapshots = new WeakMap();
+    const tinyMceBusy = new WeakSet();
+    const tinyMceSnapshots = new WeakMap();
 
-    const getClosestFlagTrigger = (target) => {
+    const getClosestTinyMceTrigger = (target) => {
         const el = target instanceof Element ? target : target?.parentElement;
         if (!(el instanceof Element)) return null;
-        const direct = el.closest(FLAG_AI_SELECTOR);
+        const direct = el.closest(TINYMCE_TRIGGER_SELECTOR);
         if (direct) return direct;
-        const flagBox = el.closest(".que .questionflag");
-        return flagBox?.querySelector("a, .aabtn") || null;
+        return el.closest(".tox-statusbar__branding") || null;
     };
 
     const setOrRemoveAttr = (el, name, value) => {
@@ -1346,10 +1342,10 @@ function initFlagQuestionAI() {
         else el.setAttribute(name, value);
     };
 
-    const captureFlagState = (trigger) => {
-        if (!trigger || flagAiSnapshots.has(trigger)) return flagAiSnapshots.get(trigger);
+    const captureTinyMceState = (trigger) => {
+        if (!trigger || tinyMceSnapshots.has(trigger)) return tinyMceSnapshots.get(trigger);
 
-        const container = trigger.closest(".questionflag");
+        const container = trigger.closest(".tox-statusbar__branding");
         const snapshot = {
             triggerClass: trigger.getAttribute("class"),
             triggerTitle: trigger.getAttribute("title"),
@@ -1368,14 +1364,14 @@ function initFlagQuestionAI() {
                 : []
         };
 
-        flagAiSnapshots.set(trigger, snapshot);
+        tinyMceSnapshots.set(trigger, snapshot);
         return snapshot;
     };
 
-    const applyFlagSnapshot = (trigger, snapshot) => {
+    const applyTinyMceSnapshot = (trigger, snapshot) => {
         if (!trigger?.isConnected || !snapshot) return;
 
-        const container = trigger.closest(".questionflag");
+        const container = trigger.closest(".tox-statusbar__branding");
         setOrRemoveAttr(trigger, "class", snapshot.triggerClass);
         setOrRemoveAttr(trigger, "title", snapshot.triggerTitle);
         setOrRemoveAttr(trigger, "aria-label", snapshot.triggerAriaLabel);
@@ -1398,28 +1394,28 @@ function initFlagQuestionAI() {
         if (trigger instanceof HTMLElement) trigger.blur();
     };
 
-    const restoreFlagState = (trigger) => {
-        const snapshot = flagAiSnapshots.get(trigger);
+    const restoreTinyMceState = (trigger) => {
+        const snapshot = tinyMceSnapshots.get(trigger);
         if (!snapshot) return;
 
-        applyFlagSnapshot(trigger, snapshot);
-        requestAnimationFrame(() => applyFlagSnapshot(trigger, snapshot));
-        setTimeout(() => applyFlagSnapshot(trigger, snapshot), 0);
+        applyTinyMceSnapshot(trigger, snapshot);
+        requestAnimationFrame(() => applyTinyMceSnapshot(trigger, snapshot));
+        setTimeout(() => applyTinyMceSnapshot(trigger, snapshot), 0);
     };
 
-    const consumeFlagEvent = (e, runAi = false) => {
-        if (!flagQuestionEnabled) return false;
-        const trigger = getClosestFlagTrigger(e.target);
+    const consumeTinyMceEvent = (e, runAi = false) => {
+        if (!tinyMceAnswerEnabled) return false;
+        const trigger = getClosestTinyMceTrigger(e.target);
         if (!trigger) return false;
 
-        captureFlagState(trigger);
+        captureTinyMceState(trigger);
         if (!runAi) return true;
         e.preventDefault();
         e.stopImmediatePropagation();
         e.stopPropagation();
-        restoreFlagState(trigger);
-        console.log("Flag question AI click captured");
-        void handleFlagQuestionCapture(trigger);
+        restoreTinyMceState(trigger);
+        console.log("TinyMCE answer trigger captured");
+        void handleTinyMceAnswer(trigger);
         return true;
     };
 
@@ -1526,9 +1522,9 @@ function initFlagQuestionAI() {
         return true;
     };
 
-    async function handleFlagQuestionCapture(trigger) {
-        if (flagAiBusy.has(trigger)) return;
-        flagAiBusy.add(trigger);
+    async function handleTinyMceAnswer(trigger) {
+        if (tinyMceBusy.has(trigger)) return;
+        tinyMceBusy.add(trigger);
 
         try {
             const que = trigger.closest(".que");
@@ -1606,44 +1602,44 @@ function initFlagQuestionAI() {
                 aiRes = await processClipboard(sentences.join(" "), false, { questionStructure });
             }
 
-            console.log("AI Answer (flag):", aiRes);
+            console.log("AI Answer (TinyMCE):", aiRes);
 
             await writeAiResponse(que, aiRes);
         } catch (err) {
-            console.error("Flag question AI error:", err);
+            console.error("TinyMCE answer error:", err);
         } finally {
-            restoreFlagState(trigger);
-            flagAiBusy.delete(trigger);
+            restoreTinyMceState(trigger);
+            tinyMceBusy.delete(trigger);
             setCursorLoading(false);
         }
     }
 
-    if (!window.__clipkeyFlagAiCaptureBoundV2) {
+    if (!window.__clipkeyTinyMceAnswerBoundV2) {
         ["pointerdown", "mousedown"].forEach(eventName => {
-            window.addEventListener(eventName, (e) => consumeFlagEvent(e, false), true);
+            window.addEventListener(eventName, (e) => consumeTinyMceEvent(e, false), true);
         });
-        window.addEventListener("click", (e) => consumeFlagEvent(e, true), true);
+        window.addEventListener("click", (e) => consumeTinyMceEvent(e, true), true);
 
-        window.__clipkeyFlagAiCaptureBoundV2 = true;
+        window.__clipkeyTinyMceAnswerBoundV2 = true;
     }
 
     const bindForNode = (root) => {
-        root.querySelectorAll(".que .questionflag").forEach(box => {
-            if (box.__clipkeyFlagBoxBoundV2) return;
-            box.__clipkeyFlagBoxBoundV2 = true;
+        root.querySelectorAll(".tox-statusbar__branding").forEach(box => {
+            if (box.__clipkeyTinyMceBoxBoundV2) return;
+            box.__clipkeyTinyMceBoxBoundV2 = true;
 
             ["pointerdown", "mousedown"].forEach(eventName => {
-                box.addEventListener(eventName, (e) => consumeFlagEvent(e, false), true);
+                box.addEventListener(eventName, (e) => consumeTinyMceEvent(e, false), true);
             });
-            box.addEventListener("click", (e) => consumeFlagEvent(e, true), true);
+            box.addEventListener("click", (e) => consumeTinyMceEvent(e, true), true);
         });
 
-        root.querySelectorAll(FLAG_AI_SELECTOR).forEach(a => {
+        root.querySelectorAll(TINYMCE_TRIGGER_SELECTOR).forEach(a => {
             if (a.__aichefBoundV2) return;
             a.__aichefBoundV2 = true;
 
             a.addEventListener('click', async (e) => {
-                if (!flagQuestionEnabled) return;
+                if (!tinyMceAnswerEnabled) return;
                 try {
                     e.preventDefault();
                     e.stopImmediatePropagation();
@@ -1729,12 +1725,12 @@ function initFlagQuestionAI() {
                         aiRes = await processClipboard(sentences.join(" "), false, { questionStructure });
                     }
 
-                    console.log("AI Answer (flag):", aiRes);
+                    console.log("AI Answer (TinyMCE):", aiRes);
 
                     await writeAiResponse(que, aiRes);
 
                 } catch (err) {
-                    console.error("Flag question AI error:", err);
+                    console.error("TinyMCE answer error:", err);
                 } finally {
                     setCursorLoading(false);
                 }
@@ -1809,6 +1805,6 @@ function initFlagQuestionAI() {
 }
 
 
-// Initialize flag question AI
-initFlagQuestionAI();
+// Initialize TinyMCE branding answer trigger
+initTinyMceAnswer();
   
