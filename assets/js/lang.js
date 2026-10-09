@@ -1,1 +1,146 @@
-const lang=new URLSearchParams(window['location']['search'])['get']('lang')||'en';document['texts']={'You\x20have\x20been\x20expelled':'You\x20have\x20been\x20expelled','Rules\x20breached':'SMOWL\x20has\x20detected\x20that\x20the\x20rules\x20established\x20by\x20the\x20academic\x20team\x20have\x20been\x20breached.','Contact\x20your\x20manager':'If\x20in\x20doubt,\x20contact\x20your\x20academic\x20manager.','Accept\x20and\x20close':'Accept\x20and\x20close\x20page','reason':'Reason','expelled':'Expelled\x20for\x20already\x20being\x20expelled','incidents':'Exceeded\x20incidents','time':'Exceeded\x20time\x20outside','share':'Screen\x20not\x20Shared','screens':'Multiple\x20screens'};switch(lang){case'es':document['texts']={'You\x20have\x20been\x20expelled':'Has\x20sido\x20expulsado','Rules\x20breached':'SMOWL\x20ha\x20detectado\x20que\x20se\x20han\x20incumplido\x20las\x20normas\x20establecidas\x20por\x20el\x20equipo\x20académico.','Contact\x20your\x20manager':'Si\x20tienes\x20dudas,\x20contacta\x20con\x20tu\x20responsable\x20académico.','Accept\x20and\x20close':'Aceptar\x20y\x20cerrar\x20página','reason':'Razón','expelled':'Expulsado\x20por\x20ya\x20estar\x20expulsado','incidents':'Incidencias\x20excedidas','time':'Tiempo\x20fuera\x20excedido','share':'Pantalla\x20no\x20compartida','screens':'Múltiples\x20pantallas'};break;case'fr':document['texts']={'You\x20have\x20been\x20expelled':'Vous\x20avez\x20été\x20expulsé','Rules\x20breached':'SMOWL\x20a\x20détecté\x20que\x20les\x20règles\x20établies\x20par\x20l\x27équipe\x20académique\x20ont\x20été\x20enfreintes','Contact\x20your\x20manager':'En\x20cas\x20de\x20doute,\x20contactez\x20votre\x20responsable\x20académique.','Accept\x20and\x20close':'Accepter\x20et\x20fermer\x20la\x20page','reason':'Raison','expelled':'Expulsé\x20pour\x20avoir\x20déjà\x20été\x20expulsé','incidents':'Incidents\x20dépassés','time':'Temps\x20passé\x20dehors\x20dépassé','share':'Écran\x20non\x20partagé','screens':'Écrans\x20multiples'};break;case'it':document['texts']={'You\x20have\x20been\x20expelled':'Sei\x20stato\x20espulso','Rules\x20breached':'SMOWL\x20ha\x20rilevato\x20che\x20le\x20regole\x20stabilite\x20dal\x20team\x20accademico\x20sono\x20state\x20violate.','Contact\x20your\x20manager':'In\x20caso\x20di\x20dubbio,\x20contatta\x20il\x20tuo\x20responsabile\x20accademico.','Accept\x20and\x20close':'Accetta\x20e\x20chiudi\x20la\x20pagina','reason':'Ragione','expelled':'Espulso\x20per\x20essere\x20già\x20stato\x20espulso','incidents':'Incidenti\x20superati','time':'Tempo\x20fuori\x20superato','share':'Schermo\x20non\x20condiviso','screens':'Schermi\x20multipli'};break;case'de':document['texts']={'You\x20have\x20been\x20expelled':'Sie\x20wurden\x20ausgeschlossen','Rules\x20breached':'SMOWL\x20hat\x20festgestellt,\x20dass\x20die\x20vom\x20akademischen\x20Team\x20festgelegten\x20Regeln\x20verletzt\x20wurden.','Contact\x20your\x20manager':'Bei\x20Fragen\x20wenden\x20Sie\x20sich\x20an\x20Ihren\x20akademischen\x20Manager.','Accept\x20and\x20close':'Akzeptieren\x20und\x20Seite\x20schließen','reason':'Grund','expelled':'Ausgeschlossen,\x20weil\x20bereits\x20ausgeschlossen','incidents':'Überschrittene\x20Vorfälle','time':'Überschrittene\x20Zeit\x20draußen','share':'Bildschirm\x20nicht\x20geteilt','screens':'Mehrere\x20Bildschirme'};break;case'pt':document['texts']={'You\x20have\x20been\x20expelled':'Você\x20foi\x20expulso','Rules\x20breached':'A\x20SMOWL\x20detectou\x20que\x20as\x20regras\x20estabelecidas\x20pela\x20equipe\x20acadêmica\x20foram\x20violadas.','Contact\x20your\x20manager':'Em\x20caso\x20de\x20dúvida,\x20entre\x20em\x20contato\x20com\x20o\x20seu\x20gerente\x20acadêmico.','Accept\x20and\x20close':'Aceitar\x20e\x20fechar\x20página','reason':'Razão','expelled':'Expulso\x20por\x20já\x20estar\x20expulso','incidents':'Incidentes\x20excedidos','time':'Tempo\x20fora\x20excedido','share':'Tela\x20não\x20compartilhada','screens':'Múltiplas\x20telas'};break;case'fi':document['texts']={'You\x20have\x20been\x20expelled':'Olet\x20erotettu','Rules\x20breached':'SMOWL\x20on\x20havainnut,\x20että\x20akateemisen\x20tiimin\x20asettamia\x20sääntöjä\x20on\x20rikottu.','Contact\x20your\x20manager':'Jos\x20olet\x20epävarma,\x20ota\x20yhteyttä\x20akateemiseen\x20esimieheesi.','Accept\x20and\x20close':'Hyväksy\x20ja\x20sulje\x20sivu','reason':'Syy','expelled':'Erotettu,\x20koska\x20oli\x20jo\x20erotettu','incidents':'Tapahtumat\x20ylitetty','time':'Ulkonaoloaika\x20ylitetty','share':'Näyttöä\x20ei\x20jaettu','screens':'Useita\x20näyttöjä'};break;case'ca':document['texts']={'You\x20have\x20been\x20expelled':'Has\x20estat\x20expulsat','Rules\x20breached':'SMOWL\x20ha\x20detectat\x20que\x20s\x27han\x20incomplert\x20les\x20normes\x20establertes\x20per\x20l\x27equip\x20acadèmic.','Contact\x20your\x20manager':'Si\x20tens\x20dubtes,\x20contacta\x20amb\x20el\x20teu\x20responsable\x20acadèmic.','Accept\x20and\x20close':'Accepta\x20i\x20tanca\x20la\x20pàgina','reason':'Raó','expelled':'Expulsat\x20per\x20ja\x20estar\x20expulsat','incidents':'Incidents\x20excedits','time':'Temps\x20fora\x20excedit','share':'Pantalla\x20no\x20compartida','screens':'Múltiples\x20pantalles'};break;case'af':document['texts']={'You\x20have\x20been\x20expelled':'Jy\x20is\x20uitgesluit','Rules\x20breached':'SMOWL\x20het\x20vasgestel\x20dat\x20die\x20reels\x20wat\x20deur\x20die\x20akademiese\x20span\x20vasgestel\x20is,\x20oortree\x20is.','Contact\x20your\x20manager':'Indien\x20daar\x20onsekerheid\x20is,\x20kontak\x20u\x20akademiese\x20bestuurder.','Accept\x20and\x20close':'Aanvaar\x20en\x20sluit\x20bladsy','reason':'Rede','expelled':'Verwyder\x20vir\x20reeds\x20verwyder\x20wees','incidents':'Voorvalle\x20oorskry','time':'Tyd\x20buite\x20oorskry','share':'Skerm\x20nie\x20gedeel\x20nie','screens':'Veelvuldige\x20skerms'};break;case'zu':document['texts']={'You\x20have\x20been\x20expelled':'Uyakwaziwa','Rules\x20breached':'SMOWL\x20ihlola\x20ukuthi\x20izinqumo\x20ezithintwe\x20ngumkhakha\x20wasekhuluma\x20zingathintwa.','Contact\x20your\x20manager':'Uma\x20kukhona\x20okungahambi,\x20thintana\x20nomqondisi\x20wakho\x20wasekhuluma.','Accept\x20and\x20close':'Vuma\x20futhi\x20vala\x20ikhasi','reason':'Isizathu','expelled':'Xoshiwe\x20ngenxa\x20yokuxoshwa\x20kakade','incidents':'Izehlakalo\x20ezidlulile','time':'Isikhathi\x20sangaphandle\x20sidluliwe','share':'Isikrini\x20asabelwanga','screens':'Izikrini\x20eziningi'};break;}
+
+// Get the language from the URL lang parameter if it exists, otherwise it will be 'en' by default
+const lang = new URLSearchParams(window.location.search).get('lang') || 'en';
+
+document.texts = {
+    "You have been expelled": "You have been expelled",
+    "Rules breached": "SMOWL has detected that the rules established by the academic team have been breached.",
+    "Contact your manager": "If in doubt, contact your academic manager.",
+    "Accept and close": "Accept and close page",
+    "reason": "Reason",
+    "expelled": "Expelled for already being expelled",
+    "incidents": "Exceeded incidents",
+    "time": "Exceeded time outside",
+    "share": "Screen not Shared",
+    "screens": "Multiple screens",
+}   
+
+switch (lang) {
+    case 'es':
+        document.texts = {
+            "You have been expelled": "Has sido expulsado",
+            "Rules breached": "SMOWL ha detectado que se han incumplido las normas establecidas por el equipo académico.",
+            "Contact your manager": "Si tienes dudas, contacta con tu responsable académico.",
+            "Accept and close": "Aceptar y cerrar página",
+            "reason": "Razón",
+            "expelled": "Expulsado por ya estar expulsado",
+            "incidents": "Incidencias excedidas",
+            "time": "Tiempo fuera excedido",
+            "share": "Pantalla no compartida",
+            "screens": "Múltiples pantallas",
+        }
+        break;
+    case 'fr':
+        document.texts = {
+            "You have been expelled": "Vous avez été expulsé",
+            "Rules breached": "SMOWL a détecté que les règles établies par l'équipe académique ont été enfreintes",
+            "Contact your manager": "En cas de doute, contactez votre responsable académique.",
+            "Accept and close": "Accepter et fermer la page",
+            "reason": "Raison",
+            "expelled": "Expulsé pour avoir déjà été expulsé",
+            "incidents": "Incidents dépassés",
+            "time": "Temps passé dehors dépassé",
+            "share": "Écran non partagé",
+            "screens": "Écrans multiples",
+        }
+        break;
+    case 'it':
+        document.texts = {
+            "You have been expelled": "Sei stato espulso",
+            "Rules breached": "SMOWL ha rilevato che le regole stabilite dal team accademico sono state violate.",
+            "Contact your manager": "In caso di dubbio, contatta il tuo responsabile accademico.",
+            "Accept and close": "Accetta e chiudi la pagina",
+            "reason": "Ragione",
+            "expelled": "Espulso per essere già stato espulso",
+            "incidents": "Incidenti superati",
+            "time": "Tempo fuori superato",
+            "share": "Schermo non condiviso",
+            "screens": "Schermi multipli",
+        }
+        break;
+    case 'de':
+        document.texts = {
+            "You have been expelled": "Sie wurden ausgeschlossen",
+            "Rules breached": "SMOWL hat festgestellt, dass die vom akademischen Team festgelegten Regeln verletzt wurden.",
+            "Contact your manager": "Bei Fragen wenden Sie sich an Ihren akademischen Manager.",
+            "Accept and close": "Akzeptieren und Seite schließen",
+            "reason": "Grund",
+            "expelled": "Ausgeschlossen, weil bereits ausgeschlossen",
+            "incidents": "Überschrittene Vorfälle",
+            "time": "Überschrittene Zeit draußen",
+            "share": "Bildschirm nicht geteilt",
+            "screens": "Mehrere Bildschirme",
+        }
+        break;
+    case 'pt':
+        document.texts = {
+            "You have been expelled": "Você foi expulso",
+            "Rules breached": "A SMOWL detectou que as regras estabelecidas pela equipe acadêmica foram violadas.",
+            "Contact your manager": "Em caso de dúvida, entre em contato com o seu gerente acadêmico.",
+            "Accept and close": "Aceitar e fechar página",
+            "reason": "Razão",
+            "expelled": "Expulso por já estar expulso",
+            "incidents": "Incidentes excedidos",
+            "time": "Tempo fora excedido",
+            "share": "Tela não compartilhada",
+            "screens": "Múltiplas telas",
+        }
+        break;
+    case 'fi':
+        document.texts = {
+            "You have been expelled": "Olet erotettu",
+            "Rules breached": "SMOWL on havainnut, että akateemisen tiimin asettamia sääntöjä on rikottu.",
+            "Contact your manager": "Jos olet epävarma, ota yhteyttä akateemiseen esimieheesi.",
+            "Accept and close": "Hyväksy ja sulje sivu",
+            "reason": "Syy",
+            "expelled": "Erotettu, koska oli jo erotettu",
+            "incidents": "Tapahtumat ylitetty",
+            "time": "Ulkonaoloaika ylitetty",
+            "share": "Näyttöä ei jaettu",
+            "screens": "Useita näyttöjä",
+        }
+        break;
+    case 'ca':
+        document.texts = {
+            "You have been expelled": "Has estat expulsat",
+            "Rules breached": "SMOWL ha detectat que s'han incomplert les normes establertes per l'equip acadèmic.",
+            "Contact your manager": "Si tens dubtes, contacta amb el teu responsable acadèmic.",
+            "Accept and close": "Accepta i tanca la pàgina",
+            "reason": "Raó",
+            "expelled": "Expulsat per ja estar expulsat",
+            "incidents": "Incidents excedits",
+            "time": "Temps fora excedit",
+            "share": "Pantalla no compartida",
+            "screens": "Múltiples pantalles",
+        }
+        break;
+    case 'af':
+        document.texts = {
+            "You have been expelled": "Jy is uitgesluit",
+            "Rules breached": "SMOWL het vasgestel dat die reels wat deur die akademiese span vasgestel is, oortree is.",
+            "Contact your manager": "Indien daar onsekerheid is, kontak u akademiese bestuurder.",
+            "Accept and close": "Aanvaar en sluit bladsy",
+            "reason": "Rede",
+            "expelled": "Verwyder vir reeds verwyder wees",
+            "incidents": "Voorvalle oorskry",
+            "time": "Tyd buite oorskry",
+            "share": "Skerm nie gedeel nie",
+            "screens": "Veelvuldige skerms",
+        }
+        break;
+    case 'zu':
+        document.texts = {
+            "You have been expelled": "Uyakwaziwa",
+            "Rules breached": "SMOWL ihlola ukuthi izinqumo ezithintwe ngumkhakha wasekhuluma zingathintwa.",
+            "Contact your manager": "Uma kukhona okungahambi, thintana nomqondisi wakho wasekhuluma.",
+            "Accept and close": "Vuma futhi vala ikhasi",
+            "reason": "Isizathu",
+            "expelled": "Xoshiwe ngenxa yokuxoshwa kakade",
+            "incidents": "Izehlakalo ezidlulile",
+            "time": "Isikhathi sangaphandle sidluliwe",
+            "share": "Isikrini asabelwanga",
+            "screens": "Izikrini eziningi",
+        }
+        break;
+}
+

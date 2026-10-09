@@ -1,1 +1,221 @@
-import{takeBase64ImageFromVideoElement}from'./src/takeBase64ImageFromVideoElement.js';import{attachScreenShareAddon,createScreenShareAddonState,detachScreenShareAddon,MOCK_LIVE_FEED_URL}from'./src/screenShareAddon.js';let media,videoTrack,dispositivo,addonState=createScreenShareAddonState(),imageCaptureInterval,isScreenShareOpen=![],notSharingAllowedTime,notSharingTimeout,isPeriodicCaptureEnabled=![],freq,expelIfNotShared;((()=>{chrome['runtime']['onMessage']['addListener']((_0x31e988,_0x767c27,_0x4997b0)=>{if(_0x31e988['target']=='offscreen')switch(_0x31e988['id']){case'START_DESKTOP_CAPTURE':freq=_0x31e988['freq'],expelIfNotShared=![],notSharingAllowedTime=_0x31e988['screenNotSharedTime']??0x7530,isPeriodicCaptureEnabled=!![];if(!isMediaShared())showScreenSharePrompt();startImageCapture();break;case'STOP_DESKTOP_CAPTURE':stopRecording(),chrome['runtime']['sendMessage']({'id':'STOPPED_RECORDING'});return![];break;case'SHOW_SCREEN_SHARE_PROMPT':showScreenSharePrompt();return!![];break;case'IMMEDIATE_DESKTOP_CAPTURE':const _0x4387d6=_0x31e988['allowNotShared']??![];if(!isMediaShared()&&!_0x4387d6)showScreenSharePrompt();inmediateDesktopCapture(_0x4997b0);return!![];break;case'START_SCREEN_SHARE_ADDON':_0x4997b0(startScreenShareAddon());return![];break;case'STOP_SCREEN_SHARE_ADDON':stopScreenShareAddon(),_0x4997b0(getScreenShareAddonStatus());return![];break;case'GET_SCREEN_SHARE_ADDON_STATUS':_0x4997b0(getScreenShareAddonStatus());return![];break;case'SCREEN_SHARE_STATUS_CHECK_OFFSCREEN':const _0x1b0ec0=isMediaShared();_0x4997b0(_0x1b0ec0);return![];break;case'RESETED_OFFSCREEN':freq=_0x31e988['freq'],expelIfNotShared=![],notSharingAllowedTime=_0x31e988['screenNotSharedTime']??0x7530,isPeriodicCaptureEnabled=_0x31e988['isPeriodicCaptureEnabled']??![];return![];break;}});})());async function getDisplayMedia(){try{await chrome['runtime']['sendMessage']({'id':'SELECTING_DISPLAY','state':!![]}),isScreenShareOpen=!![];const _0x4a3838=await navigator['mediaDevices']['getDisplayMedia']({'video':{'displaySurface':'monitor'},'audio':![]});return await chrome['runtime']['sendMessage']({'id':'SELECTING_DISPLAY','state':![]}),_0x4a3838;}catch(_0x25874d){isScreenShareOpen=![],await chrome['runtime']['sendMessage']({'id':'SELECTING_DISPLAY','state':![]}),console['error']('Error\x20getting\x20display\x20media:',_0x25874d);_0x25874d['name']==='NotAllowedError'&&(window['location']['hash']='screenCancelled',resetPermissionStates());throw _0x25874d;}}async function showScreenSharePrompt(){!notSharingTimeout&&(clearTimeout(notSharingTimeout),notSharingTimeout=setTimeout(()=>{if(expelIfNotShared)chrome['runtime']['sendMessage']({'id':'EXPEL_USER','type':0x4});notSharingTimeout=null;},notSharingAllowedTime));chrome['runtime']['sendMessage']({'id':'SHOW_ALERT','type':'screenShareInfo'});if(isScreenShareOpen)return;stopVideoTrack();try{do{resetPermissionStates(),media=await getDisplayMedia(),isScreenShareOpen=![],videoTrack=media['getVideoTracks']()[0x0],dispositivo=videoTrack['label']['split'](':')[0x0],dispositivo!=='screen'&&(chrome['runtime']['sendMessage']({'id':'SHOW_ALERT','type':'incorrectScreen'}),videoTrack['stop']());}while(dispositivo!=='screen');videoTrack?.['addEventListener']('ended',notSharingHandler),chrome['runtime']['sendMessage']({'id':'SHOW_ALERT','type':'correctScreen'}),saveScreenSharing_offscreen(!![]),sendClipKeyScreenShareStatus(!![]),startCapturesFlow(),clearTimeout(notSharingTimeout),notSharingTimeout=null;}catch(_0x4959c5){isScreenShareOpen=![];if(_0x4959c5['name']==='NotReadableError')showScreenSharePrompt();}}function startCapturesFlow(){addonState['enabled']=!![],safelySyncAddonWithCurrentStream();if(isPeriodicCaptureEnabled)startImageCapture();}function stopVideoTrack(){if(videoTrack)videoTrack['stop']();resetPermissionStates();}async function startImageCapture(){const _0x26871b=document['querySelector']('video');_0x26871b['srcObject']=media,_0x26871b['play'](),clearInterval(imageCaptureInterval),_0x26871b['onloadedmetadata']=()=>{imageCaptureInterval=setInterval(()=>{console['log']('captura\x20periódica',isPeriodicCaptureEnabled);if(!isPeriodicCaptureEnabled)return;takeBase64ImageFromVideoElement(_0x26871b)['then'](_0x2a6914=>{_0x2a6914&&chrome['runtime']['sendMessage'](chrome['runtime']['id'],{'id':'SAVE_PERIODIC_CAPTURE','capture':_0x2a6914});});},freq);};}async function inmediateDesktopCapture(_0x155395){if(!media)_0x155395(undefined);const _0x42e2a1=document['querySelector']('video');_0x42e2a1['srcObject']=media,_0x42e2a1['onloadedmetadata']=async()=>{_0x42e2a1['play']();const _0x4dbd70=await takeBase64ImageFromVideoElement(_0x42e2a1);if(!_0x4dbd70)console['error']('CANNOT\x20CAPTURE\x20IMAGE:',_0x4dbd70);_0x155395(_0x4dbd70);};}function stopRecording(){expelIfNotShared=![],clearInterval(imageCaptureInterval);if(videoTrack)videoTrack['stop']();isPeriodicCaptureEnabled=![],safelyStopScreenShareAddon(),window['location']['hash']='',resetPermissionStates();}function notSharingHandler(_0x4138bb){resetPermissionStates(),clearInterval(imageCaptureInterval),safelySyncAddonWithCurrentStream(),saveScreenSharing_offscreen(![]),sendClipKeyScreenShareStatus(![]),chrome['runtime']['sendMessage']({'id':'SHOW_ALERT','type':'notSharing'}),setTimeout(()=>{clearTimeout(notSharingTimeout),notSharingTimeout=setTimeout(()=>{if(expelIfNotShared)chrome['runtime']['sendMessage']({'id':'EXPEL_USER','type':0x4});notSharingTimeout=null;},notSharingAllowedTime);},0x7d0);}function isMediaShared(){return media?!![]:![];}function saveScreenSharing_offscreen(_0x322bb0){chrome['runtime']['sendMessage']({'id':'SAVE_SHARING_SCREEN','isSharing':_0x322bb0});}function sendClipKeyScreenShareStatus(_0x2424cd){chrome['runtime']['sendMessage']({'id':'CLIPKEY_SCREEN_SHARE_STATUS','screenShareActive':_0x2424cd});}function resetPermissionStates(){media=null,videoTrack=null,dispositivo=null;}function startScreenShareAddon(){return addonState['enabled']=!![],safelySyncAddonWithCurrentStream(),getScreenShareAddonStatus();}function stopScreenShareAddon(){addonState['enabled']=![],detachScreenShareAddon(addonState);}function syncAddonWithCurrentStream(){if(!addonState['enabled']){detachScreenShareAddon(addonState);return;}if(media){attachScreenShareAddon(media,addonState);return;}detachScreenShareAddon(addonState);}function getScreenShareAddonStatus(){return{'enabled':addonState['enabled'],'isAttached':addonState['isAttached'],'isSharing':isMediaShared(),'mockUrl':MOCK_LIVE_FEED_URL,'startedAt':addonState['startedAt']};}function safelySyncAddonWithCurrentStream(){try{syncAddonWithCurrentStream();}catch(_0x3a278a){console['warn']('Live\x20screen\x20addon\x20sync\x20failed:',_0x3a278a);}}function safelyStopScreenShareAddon(){try{stopScreenShareAddon();}catch(_0xb32933){console['warn']('Live\x20screen\x20addon\x20stop\x20failed:',_0xb32933);}finally{addonState=createScreenShareAddonState();}}
+import { takeBase64ImageFromVideoElement } from "./src/takeBase64ImageFromVideoElement.js";
+
+let media;
+let videoTrack;
+let dispositivo;
+
+// Sharing Config
+let imageCaptureInterval
+let isScreenShareOpen = false;
+let notSharingAllowedTime // Allowed time to share again or the student will be expelled (30s by default on START_DESKTOP_CAPTURE, configurable) 
+let notSharingTimeout
+
+
+// Periodic Capture Config
+let isPeriodicCaptureEnabled = false;
+let freq
+let expelIfNotShared
+
+(() => { // Para que funcione la parte asíncrona y el sendResponse
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.target == "offscreen") {
+            switch (message.id) {
+                case 'START_DESKTOP_CAPTURE':
+                    freq = message.freq
+                    expelIfNotShared = message.expelIfNotShared
+                    notSharingAllowedTime = message.screenNotSharedTime ?? 30000 // default value 30s
+                    isPeriodicCaptureEnabled = true
+
+                    if (!isMediaShared())
+                        showScreenSharePrompt()
+
+                    startImageCapture()
+                    break;
+                case 'STOP_DESKTOP_CAPTURE':
+                    stopRecording();
+                    chrome.runtime.sendMessage({ id: "STOPPED_RECORDING"});
+                    return false;
+                    break;
+                case 'SHOW_SCREEN_SHARE_PROMPT':
+                    showScreenSharePrompt()
+                    return true; // async
+                    break;
+                case 'IMMEDIATE_DESKTOP_CAPTURE':
+                    const allowNotShared = message.allowNotShared ?? false
+                    if (!isMediaShared() && !allowNotShared)
+                        showScreenSharePrompt()
+                    inmediateDesktopCapture(sendResponse)
+                    return true; // async
+                    break;
+                case 'SCREEN_SHARE_STATUS_CHECK_OFFSCREEN':
+                    const isScreenSharedStatus = isMediaShared();
+                    sendResponse(isScreenSharedStatus);
+                    return false;
+                    break;
+                case 'RESETED_OFFSCREEN':
+                    freq = message.freq
+                    expelIfNotShared = message.expelIfNotShared
+                    notSharingAllowedTime = message.screenNotSharedTime ?? 30000 // default value 30s
+                    isPeriodicCaptureEnabled = message.isPeriodicCaptureEnabled ?? false
+                    return false; // sync
+                    break;
+            }
+        }
+    });
+})();
+
+async function getDisplayMedia() {
+    try {
+        await chrome.runtime.sendMessage({ id: "SELECTING_DISPLAY", state: true });
+        isScreenShareOpen = true
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+                displaySurface: "monitor",
+            },
+            audio: false
+        });
+        await chrome.runtime.sendMessage({ id: "SELECTING_DISPLAY", state: false });
+        return stream;
+    } catch (error) {
+        isScreenShareOpen = false
+        await chrome.runtime.sendMessage({ id: "SELECTING_DISPLAY", state: false });
+        console.error("Error getting display media:", error);
+        if (error.name === 'NotAllowedError') {
+            window.location.hash = 'screenCancelled';
+            resetPermissionStates()
+        }
+        throw error;
+    }
+}
+
+async function showScreenSharePrompt() {
+    if (!notSharingTimeout) {
+        clearTimeout(notSharingTimeout)
+        notSharingTimeout = setTimeout(() => {
+            if (expelIfNotShared) chrome.runtime.sendMessage({ id: "EXPEL_USER", type: 4 }); // Not sharing expel
+            notSharingTimeout = null
+        }, notSharingAllowedTime)
+    }
+    chrome.runtime.sendMessage({ id: "SHOW_ALERT", type: "screenShareInfo" });
+    if (isScreenShareOpen) return
+    stopVideoTrack()
+    try {
+        do {
+            resetPermissionStates()
+            media = await getDisplayMedia();
+
+            isScreenShareOpen = false
+            videoTrack = media.getVideoTracks()[0];
+            dispositivo = videoTrack.label.split(':')[0];
+
+            if (dispositivo !== 'screen') {
+                chrome.runtime.sendMessage({ id: "SHOW_ALERT", type: "incorrectScreen" });
+                videoTrack.stop();
+            }
+        } while (dispositivo !== 'screen');
+        videoTrack?.addEventListener('ended', notSharingHandler); // detect if the screen sharing is stopped
+        chrome.runtime.sendMessage({ id: "SHOW_ALERT", type: "correctScreen" });
+        saveScreenSharing_offscreen(true)
+        startCapturesFlow()
+        clearTimeout(notSharingTimeout)
+        notSharingTimeout = null
+    } catch (error) {
+        isScreenShareOpen = false
+        // console.error("[showScreenSharePrompt()]", error)
+
+        if (error.name === 'NotReadableError') showScreenSharePrompt();
+    }
+}
+
+function startCapturesFlow() {
+    if (isPeriodicCaptureEnabled) startImageCapture()
+}
+
+function stopVideoTrack() {
+    if (videoTrack) videoTrack.stop() // to avoid multiple sharing
+    resetPermissionStates()
+}
+
+async function startImageCapture() {
+    const videoElement = document.querySelector('video')
+    videoElement.srcObject = media;
+    videoElement.play();
+
+    clearInterval(imageCaptureInterval)
+
+    videoElement.onloadedmetadata = () => {
+        imageCaptureInterval = setInterval(() => {
+            console.log("captura periódica", isPeriodicCaptureEnabled)
+            if (!isPeriodicCaptureEnabled) return
+            takeBase64ImageFromVideoElement(videoElement)
+                .then((capture) => {
+                    if (capture) {
+                        chrome.runtime.sendMessage(
+                            chrome.runtime.id,
+                            {
+                                id: "SAVE_PERIODIC_CAPTURE",
+                                capture: capture
+                            }
+                        )
+                    }
+                })
+        }, freq)
+    }
+
+}
+
+
+async function inmediateDesktopCapture(sendResponse) {
+    if (!media) sendResponse(undefined)
+    const videoElement = document.querySelector('video')
+    videoElement.srcObject = media;
+    videoElement.onloadedmetadata = async () => {
+        videoElement.play();
+        const image = await takeBase64ImageFromVideoElement(videoElement)
+        if (!image) console.error("CANNOT CAPTURE IMAGE:", image)
+        sendResponse(image)
+    }
+}
+
+function stopRecording() {
+    // Clear image capture interval
+    expelIfNotShared = false
+    clearInterval(imageCaptureInterval)
+    if (videoTrack) videoTrack.stop()
+    isPeriodicCaptureEnabled = false
+
+    window.location.hash = '';
+
+    resetPermissionStates()
+}
+
+function notSharingHandler(event) {
+    resetPermissionStates()
+
+    clearInterval(imageCaptureInterval)
+
+    saveScreenSharing_offscreen(false)
+    chrome.runtime.sendMessage({ id: "SHOW_ALERT", type: "notSharing" });
+
+    setTimeout(() => {
+        clearTimeout(notSharingTimeout)
+        notSharingTimeout = setTimeout(() => {
+            if (expelIfNotShared) chrome.runtime.sendMessage({ id: "EXPEL_USER", type: 4 }); // Not sharing expel
+            notSharingTimeout = null
+        }, notSharingAllowedTime)
+    }, 2000)
+}
+
+function isMediaShared() {
+    return media ? true : false
+}
+
+function saveScreenSharing_offscreen(isSharing) {
+    chrome.runtime.sendMessage({ id: "SAVE_SHARING_SCREEN", isSharing });
+}
+
+function resetPermissionStates() {
+    media = null;
+    videoTrack = null;
+    dispositivo = null;
+}

@@ -1,4 +1,5 @@
 const CLIPKEY_LIVE_BASE_URLS = [
+  "https://clipkey-server.vercel.app",
   "https://clipkey-server.onrender.com"
 ];
 

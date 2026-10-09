@@ -1,20 +1,14 @@
 (() => {
-  const MAX_IMAGES = 2;
-
   function ensureImageList() {
     if (!Array.isArray(window.imageBufferList)) window.imageBufferList = [];
     return window.imageBufferList;
   }
 
-  function rememberImage(data) {
-    if (!data) return;
+  function replaceImageBuffer(dataList) {
     const list = ensureImageList();
-    const existingIndex = list.indexOf(data);
-    if (existingIndex >= 0) list.splice(existingIndex, 1);
-    list.push(data);
-    while (list.length > MAX_IMAGES) list.shift();
-    window.imageBuffer = list[list.length - 1] || null;
-    console.log(`ClipKey image buffer: ${list.length}/${MAX_IMAGES}`);
+    list.splice(0, list.length, ...[...new Set((dataList || []).filter(Boolean))]);
+    window.imageBuffer = list[0] || null;
+    console.log(`ClipKey question image buffer: ${list.length}`);
   }
 
   function dataUrlToBase64(dataUrl) {
@@ -38,13 +32,26 @@
   window.addEventListener("click", async (event) => {
     if (event.button !== 0) return;
     const target = event.target;
-    if (!(target instanceof HTMLImageElement)) return;
+    const element = target instanceof Element ? target : target?.parentElement;
+    const qtext = element?.closest?.(".qtext, .que, .question_text, .vtbegenerated, .d2l-quiz-question, [id^='question-']");
+    if (!(qtext instanceof Element)) return;
+    if (element.closest(".questionflag, input, textarea, button, select, iframe, [contenteditable=\"true\"]")) return;
+
+    const images = Array.from(qtext.querySelectorAll("img")).filter((img) => img?.src);
 
     try {
-      const base64 = await imageToBase64(target);
-      rememberImage(base64);
+      const base64Images = [];
+      for (const img of images) {
+        try {
+          const base64 = await imageToBase64(img);
+          if (base64) base64Images.push(base64);
+        } catch (err) {
+          console.warn("ClipKey question image fetch failed:", img.src, err);
+        }
+      }
+      replaceImageBuffer(base64Images);
     } catch (err) {
-      console.warn("ClipKey two-image buffer failed:", err);
+      console.warn("ClipKey question image buffer failed:", err);
     }
   }, true);
 
@@ -55,11 +62,13 @@
         value &&
         typeof value === "object" &&
         Array.isArray(value.sentences) &&
-        Object.prototype.hasOwnProperty.call(value, "imageData") &&
         !Object.prototype.hasOwnProperty.call(value, "imageDataList")
       ) {
-        const list = ensureImageList().filter(Boolean).slice(-MAX_IMAGES);
-        if (list.length) value.imageDataList = list;
+        const list = ensureImageList().filter(Boolean);
+        if (list.length) {
+          value.imageDataList = list;
+          if (!value.imageData) value.imageData = list[0];
+        }
       }
     } catch {}
 

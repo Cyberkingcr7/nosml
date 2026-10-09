@@ -52,9 +52,7 @@
   }, true);
 
   document.addEventListener("keydown", (event) => {
-    if (isCtrlShiftH(event)) {
-      setTimeout(() => securePopupInput(document), 0);
-    }
+    if (isCtrlShiftH(event)) setTimeout(() => securePopupInput(document), 0);
   }, true);
 
   const observer = new MutationObserver((mutations) => {

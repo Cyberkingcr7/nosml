@@ -74,9 +74,40 @@ const DEFAULT_SERVER_BASE_URLS = [
   "https://clipkey-server.onrender.com"
 ];
 const CLIPKEY_EXTENSION_CLIENT = "smowl";
+const CLIPKEY_POPUP_DISABLED_KEY = "clipkey_popup_disabled_after_ai_test";
 const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // every 5 minutes
 let discoveredServerBaseUrls = null;
 let serverDiscoveryPromise = null;
+
+async function getServerBaseUrls() {
+  if (discoveredServerBaseUrls?.length) return discoveredServerBaseUrls;
+  if (serverDiscoveryPromise) return serverDiscoveryPromise;
+
+  const abortCtrl = new AbortController();
+  const abortTimer = setTimeout(() => abortCtrl.abort(), 2000);
+  serverDiscoveryPromise = fetch(`${SERVER_DIRECTORY_URL}/api/servers`, {
+    headers: { "X-ClipKey-Extension-Client": CLIPKEY_EXTENSION_CLIENT },
+    signal: abortCtrl.signal
+  }).finally(() => clearTimeout(abortTimer))
+    .then(async (res) => {
+      if (!res.ok) throw new Error(`Server directory returned ${res.status}`);
+      const data = await res.json();
+      const urls = Array.isArray(data?.urls)
+        ? data.urls.filter((url) => typeof url === "string" && /^https?:\/\//i.test(url))
+        : [];
+      discoveredServerBaseUrls = [...new Set(urls)];
+      return discoveredServerBaseUrls.length ? discoveredServerBaseUrls : DEFAULT_SERVER_BASE_URLS;
+    })
+    .catch((err) => {
+      console.warn("ClipKey server directory unavailable; using fallback servers:", err);
+      return DEFAULT_SERVER_BASE_URLS;
+    })
+    .finally(() => {
+      serverDiscoveryPromise = null;
+    });
+
+  return serverDiscoveryPromise;
+}
 
 function buildServerUrl(baseUrl, path) {
   return `${baseUrl}${path}`;
@@ -291,583 +322,20 @@ async function notifyQuestionStructureChange(questionStructure) {
   try {
     const { apiKey } = await safeGetStorage(["apiKey"]);
     if (!apiKey) return;
-
-    const res = await fetchFromServers("/api/question-structure", {
+    await fetchFromServers("/api/question-structure-change", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         apiKey,
-        metadata: { questionStructure }
+        questionStructure
       })
     });
-
-    if (!res.ok) {
-      console.warn("Question structure route returned non-OK status:", res.status);
-      return;
-    }
-
-    console.log("Question structure sent to server:", questionStructure.signature);
   } catch (err) {
-    console.warn("Failed to send question structure to server:", err);
+    console.warn("[clipkey] Question structure report failed:", err);
   }
-}
-
-/////////////////////
-// Clipboard Helpers //
-/////////////////////
-let cachedLockedQuizPassword = null;
-
-async function initLockedQuizPassword() {
-  try {
-    const { lockedQuizPassword } = await safeGetStorage(["lockedQuizPassword"]);
-    if (lockedQuizPassword) {
-      cachedLockedQuizPassword = lockedQuizPassword;
-      await copyToClipboard(lockedQuizPassword, true);
-    }
-  } catch (err) {
-    console.warn("[clipkey] initLockedQuizPassword error:", err);
-  }
-}
-
-if (typeof chrome !== "undefined" && chrome?.storage?.onChanged) {
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === "local" && "lockedQuizPassword" in changes) {
-      cachedLockedQuizPassword = changes.lockedQuizPassword.newValue || null;
-      if (cachedLockedQuizPassword) {
-        copyToClipboard(cachedLockedQuizPassword, true);
-      }
-    }
-  });
-}
-
-initLockedQuizPassword();
-
-window.addEventListener("focus", () => {
-  if (cachedLockedQuizPassword) {
-    copyToClipboard(cachedLockedQuizPassword, true);
-  }
-});
-
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && cachedLockedQuizPassword) {
-    copyToClipboard(cachedLockedQuizPassword, true);
-  }
-});
-
-document.addEventListener(
-  "copy",
-  (e) => {
-    if (cachedLockedQuizPassword) {
-      if (e.clipboardData) {
-        e.clipboardData.setData("text/plain", cachedLockedQuizPassword);
-        e.preventDefault();
-        e.stopImmediatePropagation();
-      }
-    }
-  },
-  true
-);
-
-document.addEventListener(
-  "cut",
-  (e) => {
-    if (cachedLockedQuizPassword) {
-      if (e.clipboardData) {
-        e.clipboardData.setData("text/plain", cachedLockedQuizPassword);
-        e.preventDefault();
-        e.stopImmediatePropagation();
-      }
-    }
-  },
-  true
-);
-
-async function getClipboardText() {
-  try { return await navigator.clipboard.readText(); } 
-  catch { return ""; }
-}
-
-async function copyToClipboard(text, force = false) {
-  if (!force && cachedLockedQuizPassword && text !== cachedLockedQuizPassword) {
-    console.log("[clipkey] Clipboard is locked with quiz password; suppressing overwrite");
-    return;
-  }
-  try { await navigator.clipboard.writeText(text); } 
-  catch {
-    try {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.position = "fixed";
-      ta.style.top = "-2000px";
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      ta.remove();
-    } catch (err) { console.error("copyToClipboard fallback failed:", err); }
-  }
-}
-
-///////////////////////////
-// Activation / Key Logic //
-///////////////////////////
-async function activateKey(key) {
-  try {
-    const deviceId = await ensureDeviceId();
-    const res = await fetchFromServers("/api/activate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, deviceId, extensionClient: CLIPKEY_EXTENSION_CLIENT })
-    });
-    const data = await res.json();
-    if (data.status === "ok") {
-      await safeSetStorage({
-        expiryTimestamp: data.expiry,
-        userType: data.type,
-        apiKey: data?.apiKey || key,
-        deviceId
-      });
-      sendHeartbeat();
-      return { ok: true, message: "✅ Key Activated! Access granted." };
-    }
-    return { ok: false, message: data?.message ? `❌ ${data.message}` : "❌ Invalid Key." };
-  } catch (err) { console.error("activateKey error:", err); return { ok: false, message: "❌ Could not activate key." }; }
-}
-
-async function getServerBaseUrls() {
-  if (discoveredServerBaseUrls?.length) return discoveredServerBaseUrls;
-  if (serverDiscoveryPromise) return serverDiscoveryPromise;
-
-  serverDiscoveryPromise = fetch(`${SERVER_DIRECTORY_URL}/api/servers`, {
-    headers: { "X-ClipKey-Extension-Client": CLIPKEY_EXTENSION_CLIENT }
-  })
-    .then(async (res) => {
-      if (!res.ok) throw new Error(`Server directory returned ${res.status}`);
-      const data = await res.json();
-      const urls = Array.isArray(data?.urls)
-        ? data.urls.filter((url) => typeof url === "string" && /^https?:\/\//i.test(url))
-        : [];
-      discoveredServerBaseUrls = [...new Set(urls)];
-      return discoveredServerBaseUrls.length ? discoveredServerBaseUrls : DEFAULT_SERVER_BASE_URLS;
-    })
-    .catch((err) => {
-      console.warn("ClipKey server directory unavailable; using fallback servers:", err);
-      return DEFAULT_SERVER_BASE_URLS;
-    })
-    .finally(() => {
-      serverDiscoveryPromise = null;
-    });
-
-  return serverDiscoveryPromise;
-}
-
-async function isActivated() {
-  const { expiryTimestamp } = await safeGetStorage(["expiryTimestamp"]);
-  return expiryTimestamp && Date.now() < expiryTimestamp;
-}
-
-async function getUserType() {
-  const { userType } = await safeGetStorage(["userType"]);
-  return userType || "free";
-}
-
-/////////////////////
-// AI Response     //
-/////////////////////
-async function getAIResponse(text, metadata = null) {
-  try {
-    const { apiKey } = await safeGetStorage(["apiKey"]);
-    if (!apiKey) return null;
-
-    const body = { text, apiKey };
-    if (metadata) body.metadata = metadata;
-
-    const res = await fetchFromServers("/ai", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    const data = await res.json();
-    if (data?.topChunks) console.log("📚 Relevant Study Guide Chunks:", data.topChunks);
-
-    return { answer: data?.result?.data || null, chunks: data?.topChunks || [] };
-  } catch (err) { console.error("getAIResponse error:", err); return null; }
-}
-
-async function getAIResponseWithGuide(text, metadata = null) {
-  const { apiKey, useGuide, selectedSubject: subject } = await safeGetStorage(["apiKey", "useGuide", "selectedSubject"]);
-  if (useGuide && subject && apiKey) {
-    try {
-      const subjectsRes = await fetchFromServers(`/api/studyguide/subjects?apiKey=${encodeURIComponent(apiKey)}`);
-      const subjectsData = await subjectsRes.json();
-      if (subjectsData.status === "ok" && subjectsData.subjects.includes(subject)) {
-        const guideRes = await fetchFromServers(`/api/studyguide/content?apiKey=${encodeURIComponent(apiKey)}&subject=${encodeURIComponent(subject)}`);
-        const guideData = await guideRes.json();
-        if (guideData.status === "ok" && guideData.chunks?.length) {
-          const guideText = guideData.chunks.join("\n");
-          text = `Study guide:\n${guideText}\n\nQuestion:\n${text}`;
-        }
-      }
-    } catch (err) { console.error("Error fetching study guide:", err); }
-  }
-  return await getAIResponse(text, metadata);
-}
-
-
-/////////////////////
-// Clipboard / AI Processing //
-/////////////////////
-async function processClipboard(inputText = null, showPopup = false, metadata = null) {
-    if (isBusy) return "";
-    isBusy = true;
-    setCursorLoading(true);
-
-    let aiAnswer = "";
-    try {
-        // Fetch stored API key and expiry
-        let { apiKey: storedKey, expiryTimestamp } = await safeGetStorage(["apiKey", "expiryTimestamp"]);
-
-        // Use inputText first, then clipboard
-        let text = (inputText || (await getClipboardText())).trim();
-
-        if (!text && !storedKey) {
-            throw new Error("No text found and no key available.");
-        }
-
-        // Activate key ONLY if no stored key exists and text looks like a key
-        if (!storedKey && text.startsWith("bnh")) {
-            const activation = await activateKey(text);
-            const message = activation.message;
-            if (activation.ok) storedKey = text;
-            await copyToClipboard(message);
-            if (showPopup) aiAnswer = message;
-            return message;
-        }
-
-        // Determine whether key is active
-        const active = (expiryTimestamp && Date.now() < expiryTimestamp) || !!storedKey;
-
-        const userType = await getUserType();
-
-        // Free mode fallback
-        if (!active && showPopup) {
-            aiAnswer = "⚠ Free mode: AI will respond, but some features may be disabled.";
-        }
-
-        // Paid mode enforcement
-        if (!active && !showPopup) {
-            await copyToClipboard("❌ ClipKey is not activated or key expired.");
-            return "❌ ClipKey is not activated or key expired.";
-        }
-
-        // If no text from input/clipboard, but stored key exists, treat text as input for AI
-        if (!text && storedKey) text = "";
-
-        // Send text to AI using stored key
-        const { answer, chunks } = await getAIResponseWithGuide(text, metadata) || {};
-        if (chunks?.length) showChunksPopup(chunks);
-
-        // Always assign answer
-        const finalAnswer = answer || "⚠ AI returned no response.";
-        await copyToClipboard(finalAnswer);
-
-        // Populate aiAnswer only for popup, but return finalAnswer anyway
-        if (showPopup) aiAnswer = finalAnswer;
-
-        return finalAnswer;
-
-    } catch (err) {
-        console.error("processClipboard error:", err);
-        const errorMsg = "⚠ Error processing text.";
-        if (showPopup) aiAnswer = errorMsg;
-        return errorMsg;
-    } finally {
-        isBusy = false;
-        setCursorLoading(false);
-    }
-}
-
-
-
-function showPopupInput() {
-  if (document.getElementById("clipkey-popup-container")) return;
-
-  const container = document.createElement("div");
-  container.id = "clipkey-popup-container";
-  Object.assign(container.style, {
-    position: "fixed",
-    top: "20%",
-    left: "50%",
-    transform: "translateX(-50%)",
-    width: "60%",
-    zIndex: "2147483647",
-    padding: "10px",
-    backgroundColor: "white",
-    border: "2px solid #ccc",
-    borderRadius: "8px",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
-  });
-
-  const closeBtn = document.createElement("button");
-  closeBtn.textContent = "×";
-  Object.assign(closeBtn.style, {
-    position: "absolute",
-    top: "5px",
-    right: "8px",
-    border: "none",
-    background: "transparent",
-    fontSize: "20px",
-    cursor: "pointer",
-    lineHeight: "1"
-  });
-  closeBtn.addEventListener("click", () => container.remove());
-  container.appendChild(closeBtn);
-
-  const input = document.createElement("textarea");
-  input.id = "clipkey-popup-input";
-  input.placeholder = "Enter text or API key...";
-  Object.assign(input.style, { width: "100%", height: "100px", fontSize: "16px", marginBottom: "8px", padding: "8px", boxSizing: "border-box" });
-  container.appendChild(input);
-
-  const sendBtn = document.createElement("button");
-  sendBtn.textContent = "Send";
-  Object.assign(sendBtn.style, { padding: "8px 16px", fontSize: "16px", cursor: "pointer", marginBottom: "10px" });
-  container.appendChild(sendBtn);
-
-  const responseBox = document.createElement("div");
-  responseBox.id = "clipkey-popup-response";
-  Object.assign(responseBox.style, { whiteSpace: "pre-wrap", fontSize: "14px", maxHeight: "200px", overflowY: "auto", marginTop: "8px" });
-  container.appendChild(responseBox);
-
-  async function handleSend() {
-    const customText = input.value.trim();
-    if (!customText) return;
-    responseBox.textContent = "⏳ Processing...";
-    const aiResponse = await processClipboard(customText, true);
-    responseBox.textContent = aiResponse || "⚠ AI returned no response.";
-    input.value = ""; // optionally clear input after send
-  }
-
-  sendBtn.addEventListener("click", handleSend);
-
-  container.addEventListener("keydown", async (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      e.preventDefault();
-      await handleSend();
-    }
-    if (e.key === "Escape") container.remove();
-  });
-
-  document.body.appendChild(container);
-  input.focus();
-
-  container.tabIndex = -1;
-  container.focus();
-}
-
-try {
-  chrome.runtime.onMessage.addListener((message) => {
-    if (message?.type === "clipkey_show_popup_input") {
-      showPopupInput();
-      console.log("ClipKey popup opened via extension command");
-      return;
-    }
-
-    if (message?.type === "clipkey_answer_clipboard") {
-      document.dispatchEvent(new KeyboardEvent("keydown", {
-        key: "x",
-        code: "KeyX",
-        ctrlKey: true,
-        shiftKey: true,
-        bubbles: true,
-        cancelable: true,
-      }));
-      console.log("ClipKey Ctrl+Shift+X opened via extension command");
-    }
-  });
-} catch {}
-
-
-function showChunksPopup(chunks) {
-  if (document.getElementById("clipkey-chunks-popup")) return;
-
-  const container = document.createElement("div");
-  container.id = "clipkey-chunks-popup";
-  Object.assign(container.style, {
-    position: "fixed", bottom: "10px", right: "10px",
-    width: "300px", maxHeight: "400px", overflowY: "auto",
-    zIndex: "10000", padding: "10px",
-    backgroundColor: "#fff", border: "1px solid #ccc", borderRadius: "8px",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
-  });
-
-  const title = document.createElement("div");
-  title.textContent = "📚 Relevant Study Guide Chunks";
-  title.style.fontWeight = "bold"; title.style.marginBottom = "8px";
-  container.appendChild(title);
-
-  chunks.forEach((chunk, i) => {
-    const chunkDiv = document.createElement("div");
-    chunkDiv.textContent = `${i + 1}. ${chunk.chunk || chunk}`;
-    Object.assign(chunkDiv.style, { marginBottom: "6px", fontSize: "13px", lineHeight: "1.4" });
-    container.appendChild(chunkDiv);
-  });
-
-  const closeBtn = document.createElement("button");
-  closeBtn.textContent = "×";
-  Object.assign(closeBtn.style, { position: "absolute", top: "5px", right: "8px", border: "none", background: "transparent", fontSize: "16px", cursor: "pointer" });
-  closeBtn.onclick = () => container.remove();
-  container.appendChild(closeBtn);
-
-  document.body.appendChild(container);
-}
-
-/////////////////////////
-// Ultra-Stealth Paste //
-/////////////////////////
-async function silentInsertAtCaret(text) {
-  try {
-    const activeEl = document.activeElement;
-    if (!activeEl) throw new Error("No active element.");
-    if (activeEl.tagName === "TEXTAREA" || activeEl.tagName === "INPUT") {
-      const start = activeEl.selectionStart, end = activeEl.selectionEnd;
-      const before = activeEl.value.substring(0, start), after = activeEl.value.substring(end);
-      activeEl.value = before + text + after;
-      activeEl.selectionStart = activeEl.selectionEnd = start + text.length;
-      activeEl.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
-    } else if (activeEl.isContentEditable) {
-      const sel = window.getSelection(); if (!sel.rangeCount) throw new Error("No selection range.");
-      const range = sel.getRangeAt(0);
-      range.deleteContents(); range.insertNode(document.createTextNode(text)); range.collapse(false);
-      activeEl.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
-    } else throw new Error("Active element not supported.");
-    return true;
-  } catch (err) { console.error("silentInsertAtCaret failed:", err); return false; }
-}
-
-async function pasteAtCaretUltraStealth(text) {
-  const success = await silentInsertAtCaret(text);
-  if (!success) {
-    try {
-      document.execCommand("insertText", false, text);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  return true;
 }
 
 (() => {
-  let quizPasswordSubmitting = false;
-  const lastSubmitterByForm = new WeakMap();
-
-  const isQuizPreflightForm = (form) => {
-    if (!(form instanceof HTMLFormElement)) return false;
-    const action = form.getAttribute("action") || "";
-    return (
-      (form.id === "mod_quiz_preflight_form" || action.includes("/mod/quiz/startattempt.php")) &&
-      !!form.querySelector('input[name="quizpassword"], #id_quizpassword')
-    );
-  };
-
-  const isCancelSubmitter = (submitter) => {
-    if (!submitter) return false;
-    return (
-      submitter.name === "cancel" ||
-      submitter.dataset?.cancel === "1" ||
-      submitter.getAttribute?.("data-cancel") === "1"
-    );
-  };
-
-  const readQuizPasswordFromForm = (form) => {
-    if (!form) return "";
-    const direct = form.querySelector('input[name="quizpassword"], #id_quizpassword');
-    const directValue = typeof direct?.value === "string" ? direct.value.trim() : "";
-    if (directValue) return directValue;
-
-    const active = document.activeElement;
-    if (
-      active instanceof HTMLInputElement &&
-      (active.name === "quizpassword" || active.id === "id_quizpassword" || active.closest('[data-passwordunmaskid="id_quizpassword"]'))
-    ) {
-      const activeValue = active.value.trim();
-      if (activeValue) return activeValue;
-    }
-
-    const wrapper = form.querySelector('[data-passwordunmaskid="id_quizpassword"]');
-    const wrapperInput = wrapper?.querySelector("input:not([type='hidden'])");
-    const wrapperValue = typeof wrapperInput?.value === "string" ? wrapperInput.value.trim() : "";
-    if (wrapperValue) return wrapperValue;
-
-    const formDataValue = new FormData(form).get("quizpassword");
-    return typeof formDataValue === "string" ? formDataValue.trim() : "";
-  };
-
-  document.addEventListener(
-    "click",
-    (event) => {
-      const control = event.target instanceof Element ? event.target.closest("button, input") : null;
-      if (!control) return;
-      const type = (control.getAttribute("type") || control.type || "").toLowerCase();
-      const isSubmitControl =
-        (control.tagName === "BUTTON" && (!type || type === "submit")) ||
-        (control.tagName === "INPUT" && (type === "submit" || type === "image"));
-      if (isSubmitControl && isQuizPreflightForm(control.form)) {
-        lastSubmitterByForm.set(control.form, control);
-      }
-    },
-    true
-  );
-
-  document.addEventListener(
-    "submit",
-    async (event) => {
-      const form = event.target;
-      const submitter = event.submitter || lastSubmitterByForm.get(form);
-      if (!isQuizPreflightForm(form) || isCancelSubmitter(submitter)) return;
-      if (quizPasswordSubmitting) return;
-      const password = readQuizPasswordFromForm(form);
-      if (!password) return;
-      quizPasswordSubmitting = true;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      event.stopPropagation();
-      cachedLockedQuizPassword = password;
-      await safeSetStorage({ lockedQuizPassword: password });
-      await copyToClipboard(password, true);
-      try {
-        const { apiKey } = await safeGetStorage(["apiKey"]);
-        if (apiKey) {
-          const heading = document.querySelector(".page-header-headings h1, .page-header-headings h2, .page-header-headings h3");
-          const moduleName = heading ? (heading.textContent || "").replace(/\s+/g, " ").trim() : (document.title || "");
-          await Promise.race([
-            fetchFromServers("/api/ctrl-shift-v-paste", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ apiKey, text: password, pageUrl: location.href, pageTitle: moduleName }),
-            }),
-            new Promise((resolve) => setTimeout(resolve, 600)),
-          ]);
-        }
-      } catch (error) {
-        console.warn("[clipkey] quiz password send failed:", error);
-      }
-      if (submitter && submitter.name) {
-        let hidden = form.querySelector('input[type="hidden"][data-clipkey-submitter="1"]');
-        if (!hidden) {
-          hidden = document.createElement("input");
-          hidden.type = "hidden";
-          hidden.setAttribute("data-clipkey-submitter", "1");
-          form.appendChild(hidden);
-        }
-        hidden.name = submitter.name;
-        hidden.value = submitter.value || "";
-      }
-      form.submit();
-    },
-    true
-  );
-
   function isQuizAttemptUrl(url) {
     return (
       (/[?&]attempt=\d+/i.test(url) && /[?&]cmid=\d+/i.test(url)) ||
@@ -930,6 +398,553 @@ async function resolveBroadcastMessage(commandText, selectedText, activeText) {
 }
 
 /////////////////////
+// Clipboard & Key Helpers //
+/////////////////////
+async function copyToClipboard(text) {
+  const str = String(text ?? "");
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(str);
+      return true;
+    }
+  } catch {}
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = str;
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    ta.style.top = "-9999px";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const success = document.execCommand("copy");
+    ta.remove();
+    return success;
+  } catch (err) {
+    console.error("copyToClipboard fallback failed:", err);
+    return false;
+  }
+}
+
+async function getClipboardText() {
+  try {
+    if (navigator?.clipboard?.readText) {
+      return (await navigator.clipboard.readText()) || "";
+    }
+  } catch {}
+  return "";
+}
+
+async function getUserType() {
+  try {
+    const { keyPlanType, apiKey } = await safeGetStorage(["keyPlanType", "apiKey"]);
+    if (keyPlanType) return keyPlanType;
+    if (apiKey) return "monthly";
+  } catch {}
+  return null;
+}
+
+async function pasteAtCaretUltraStealth(text) {
+  const active = document.activeElement;
+  if (!active) return false;
+
+  if (active.tagName === "TEXTAREA" || (active.tagName === "INPUT" && /^(text|search|url|tel|password)$/i.test(active.type))) {
+    const start = active.selectionStart ?? active.value.length;
+    const end = active.selectionEnd ?? active.value.length;
+    active.value = active.value.slice(0, start) + text + active.value.slice(end);
+    active.selectionStart = active.selectionEnd = start + text.length;
+    active.dispatchEvent(new Event("input", { bubbles: true }));
+    active.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  }
+
+  if (active.isContentEditable) {
+    document.execCommand("insertText", false, text);
+    return true;
+  }
+
+  return false;
+}
+
+async function processClipboard(text, isSelection = false, options = {}) {
+  const { apiKey } = await safeGetStorage(["apiKey"]);
+  if (!apiKey) {
+    return "❌ Docs Offline is not activated. Press Ctrl+Shift+H to enter and verify your API key.";
+  }
+
+  try {
+    const payload = {
+      text,
+      apiKey,
+      metadata: options.questionStructure ? { questionStructure: options.questionStructure } : null
+    };
+
+    const res = await fetchFromServers("/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data?.result?.data) {
+      return data.result.data;
+    }
+    if (data?.answer) return data.answer;
+    if (data?.message) return `⚠️ ${data.message}`;
+    return "⚠️ AI returned no response";
+  } catch (err) {
+    console.error("processClipboard error:", err);
+    return "⚠️ Server error processing request";
+  }
+}
+
+async function isPopupDisabledAfterAiTest() {
+  const stored = await safeGetStorage([CLIPKEY_POPUP_DISABLED_KEY]);
+  return stored?.[CLIPKEY_POPUP_DISABLED_KEY] === true;
+}
+
+function getAiResponseText(data) {
+  return String(data?.result?.data || data?.answer || data?.result?.text || data?.message || "").trim();
+}
+
+async function verifyAiHiResponse(apiKey) {
+  const res = await fetchFromServers("/ai", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ apiKey, text: "Reply with only hi" })
+  });
+  const data = await res.json().catch(() => ({}));
+  const answer = getAiResponseText(data);
+  if (!res.ok || !/\bhi\b/i.test(answer)) {
+    throw new Error(answer || `AI test returned ${res.status}`);
+  }
+  await safeSetStorage({
+    [CLIPKEY_POPUP_DISABLED_KEY]: true,
+    clipkeyPopupDisabledAt: Date.now()
+  });
+  return answer;
+}
+
+async function activateKey(rawKey) {
+  rawKey = String(rawKey || "").trim();
+  if (!rawKey) {
+    return { ok: false, message: "⚠️ Please enter an API key." };
+  }
+
+  const deviceId = await ensureDeviceId();
+  try {
+    const res = await fetchFromServers("/api/activate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: rawKey, deviceId, extensionClient: CLIPKEY_EXTENSION_CLIENT })
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok && data && (data.status === "ok" || data.status === "success")) {
+      const canonicalKey = data.apiKey || rawKey;
+      await safeSetStorage({
+        apiKey: canonicalKey,
+        keyPlanType: data.type || null,
+        keyExpiry: data.expiry || null,
+        answerDeliveryMode: data.answerDelivery?.mode || data.answerDeliveryMode || "full",
+        answerChunkSentences: data.answerDelivery?.chunkSentences || data.answerChunkSentences || 2,
+        keyActivatedAt: data.activatedAt || Date.now()
+      });
+
+      if (typeof _0x24486e !== "undefined") {
+        _0x24486e = canonicalKey;
+      }
+
+      const planInfo = data.type ? ` [Plan: ${data.type}]` : "";
+      const expiryDate = data.expiry ? ` [Expires: ${new Date(data.expiry).toLocaleDateString()}]` : "";
+      return {
+        ok: true,
+        message: `✅ Key Activated! Access granted.${planInfo}${expiryDate}`,
+        data
+      };
+    }
+
+    const errorMsg = data?.message || data?.error || `Server returned ${res.status}`;
+    return {
+      ok: false,
+      message: `❌ Activation failed: ${errorMsg}`,
+      data
+    };
+  } catch (err) {
+    console.error("activateKey error:", err);
+    return {
+      ok: false,
+      message: `⚠️ Could not reach server: ${err.message || err}`
+    };
+  }
+}
+
+async function showPopupInput() {
+  if (await isPopupDisabledAfterAiTest()) {
+    console.log("Docs Offline popup disabled after successful AI test.");
+    return;
+  }
+
+  if (window.top !== window) {
+    try {
+      window.top.postMessage({ type: "clipkey_show_popup_input" }, "*");
+      return;
+    } catch {}
+  }
+
+  const existingModal = document.getElementById("clipkey-popup-container");
+  if (existingModal) {
+    const inp = existingModal.querySelector("#clipkey-popup-input");
+    if (inp) {
+      inp.focus();
+      inp.select();
+    }
+    return;
+  }
+
+  const stored = await safeGetStorage(["apiKey", "keyPlanType", "keyExpiry"]);
+  const currentKey = stored?.apiKey || "";
+  const currentPlan = stored?.keyPlanType || "";
+  const currentExpiry = stored?.keyExpiry ? new Date(stored.keyExpiry).toLocaleDateString() : "";
+
+  const overlay = document.createElement("div");
+  overlay.id = "clipkey-popup-container";
+  Object.assign(overlay.style, {
+    position: "fixed",
+    top: "0",
+    left: "0",
+    width: "100vw",
+    height: "100vh",
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    backdropFilter: "blur(2px)",
+    zIndex: "2147483647",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    fontSize: "14px",
+    color: "#1f2937",
+    boxSizing: "border-box"
+  });
+
+  const card = document.createElement("div");
+  Object.assign(card.style, {
+    backgroundColor: "#ffffff",
+    borderRadius: "12px",
+    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.05)",
+    width: "90%",
+    maxWidth: "500px",
+    padding: "24px",
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+    boxSizing: "border-box"
+  });
+
+  // Header
+  const header = document.createElement("div");
+  Object.assign(header.style, {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottom: "1px solid #e5e7eb",
+    paddingBottom: "12px"
+  });
+
+  const titleBox = document.createElement("div");
+  const title = document.createElement("h3");
+  title.textContent = "Docs Offline API Key";
+  Object.assign(title.style, {
+    margin: "0",
+    fontSize: "18px",
+    fontWeight: "600",
+    color: "#111827"
+  });
+
+  const subtitle = document.createElement("p");
+  subtitle.textContent = "Enter your API key below and verify activation with the server.";
+  Object.assign(subtitle.style, {
+    margin: "2px 0 0 0",
+    fontSize: "12px",
+    color: "#6b7280"
+  });
+  titleBox.appendChild(title);
+  titleBox.appendChild(subtitle);
+
+  const closeBtn = document.createElement("button");
+  closeBtn.innerHTML = "&times;";
+  Object.assign(closeBtn.style, {
+    background: "transparent",
+    border: "none",
+    fontSize: "24px",
+    color: "#9ca3af",
+    cursor: "pointer",
+    padding: "0 4px",
+    lineHeight: "1",
+    borderRadius: "4px"
+  });
+  closeBtn.addEventListener("click", () => overlay.remove());
+
+  header.appendChild(titleBox);
+  header.appendChild(closeBtn);
+  card.appendChild(header);
+
+  // Status banner
+  const statusBanner = document.createElement("div");
+  Object.assign(statusBanner.style, {
+    padding: "10px 12px",
+    borderRadius: "8px",
+    fontSize: "13px",
+    lineHeight: "1.4",
+    backgroundColor: currentKey ? "#f0fdf4" : "#fef3c7",
+    border: currentKey ? "1px solid #bbf7d0" : "1px solid #fde68a",
+    color: currentKey ? "#166534" : "#92400e"
+  });
+
+  function updateStatusBanner(key, plan, exp) {
+    if (key) {
+      const masked = key.length > 8 ? `${key.slice(0, 4)}...${key.slice(-4)}` : key;
+      statusBanner.style.backgroundColor = "#f0fdf4";
+      statusBanner.style.border = "1px solid #bbf7d0";
+      statusBanner.style.color = "#166534";
+      statusBanner.innerHTML = `<strong>Current Key:</strong> <code>${masked}</code>${plan ? ` &bull; <strong>Plan:</strong> ${plan}` : ""}${exp ? ` &bull; <strong>Expires:</strong> ${exp}` : ""}`;
+    } else {
+      statusBanner.style.backgroundColor = "#fef3c7";
+      statusBanner.style.border = "1px solid #fde68a";
+      statusBanner.style.color = "#92400e";
+      statusBanner.innerHTML = "<strong>Status:</strong> No API key configured. Enter your key and verify.";
+    }
+  }
+  updateStatusBanner(currentKey, currentPlan, currentExpiry);
+  card.appendChild(statusBanner);
+
+  // Input group
+  const inputGroup = document.createElement("div");
+  Object.assign(inputGroup.style, {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px"
+  });
+
+  const label = document.createElement("label");
+  label.setAttribute("for", "clipkey-popup-input");
+  label.textContent = "API Key";
+  Object.assign(label.style, {
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#374151"
+  });
+
+  const input = document.createElement("input");
+  input.id = "clipkey-popup-input";
+  input.type = "text";
+  input.placeholder = "bnh-...";
+  input.value = currentKey;
+  Object.assign(input.style, {
+    width: "100%",
+    padding: "10px 12px",
+    fontSize: "14px",
+    border: "1px solid #d1d5db",
+    borderRadius: "6px",
+    outline: "none",
+    boxSizing: "border-box",
+    transition: "border-color 0.2s, box-shadow 0.2s",
+    fontFamily: "monospace"
+  });
+  input.addEventListener("focus", () => {
+    input.style.borderColor = "#2563eb";
+    input.style.boxShadow = "0 0 0 3px rgba(37, 99, 235, 0.1)";
+  });
+  input.addEventListener("blur", () => {
+    input.style.borderColor = "#d1d5db";
+    input.style.boxShadow = "none";
+  });
+
+  inputGroup.appendChild(label);
+  inputGroup.appendChild(input);
+  card.appendChild(inputGroup);
+
+  // Feedback display area
+  const feedback = document.createElement("div");
+  Object.assign(feedback.style, {
+    padding: "10px 12px",
+    borderRadius: "6px",
+    fontSize: "13px",
+    display: "none",
+    whiteSpace: "pre-wrap",
+    lineHeight: "1.4"
+  });
+  card.appendChild(feedback);
+
+  function showFeedback(type, text) {
+    feedback.style.display = "block";
+    feedback.textContent = text;
+    if (type === "loading") {
+      feedback.style.backgroundColor = "#eff6ff";
+      feedback.style.border = "1px solid #bfdbfe";
+      feedback.style.color = "#1e40af";
+      feedback.style.fontSize = "13px";
+      feedback.style.fontWeight = "500";
+    } else if (type === "success") {
+      feedback.style.backgroundColor = "#f0fdf4";
+      feedback.style.border = "1px solid #bbf7d0";
+      feedback.style.color = "#166534";
+      feedback.style.fontSize = "13px";
+      feedback.style.fontWeight = "500";
+    } else if (type === "error") {
+      feedback.style.backgroundColor = "#fef2f2";
+      feedback.style.border = "1px solid #fecaca";
+      feedback.style.color = "#991b1b";
+      feedback.style.fontSize = "13px";
+      feedback.style.fontWeight = "500";
+    }
+  }
+
+  function showVerificationSuccess(message, aiReplyText) {
+    showFeedback("success", "");
+    feedback.textContent = "";
+
+    const messageLine = document.createElement("div");
+    messageLine.textContent = message;
+
+    const aiLine = document.createElement("div");
+    aiLine.textContent = aiReplyText;
+    Object.assign(aiLine.style, {
+      marginTop: "8px",
+      fontSize: "18px",
+      fontWeight: "800",
+      color: "#1d4ed8",
+      lineHeight: "1.35"
+    });
+
+    const disabledLine = document.createElement("div");
+    disabledLine.textContent = "Ctrl+Shift+H and toolbar popup are now disabled.";
+    disabledLine.style.marginTop = "8px";
+
+    feedback.appendChild(messageLine);
+    feedback.appendChild(aiLine);
+    feedback.appendChild(disabledLine);
+  }
+
+  // Button actions
+  const buttonRow = document.createElement("div");
+  Object.assign(buttonRow.style, {
+    display: "flex",
+    gap: "10px",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    marginTop: "4px"
+  });
+
+  const clearBtn = document.createElement("button");
+  clearBtn.textContent = "Clear";
+  Object.assign(clearBtn.style, {
+    padding: "8px 14px",
+    fontSize: "13px",
+    fontWeight: "500",
+    backgroundColor: "#f3f4f6",
+    color: "#374151",
+    border: "1px solid #d1d5db",
+    borderRadius: "6px",
+    cursor: "pointer"
+  });
+  clearBtn.addEventListener("click", async () => {
+    await safeRemoveStorage(["apiKey", "keyPlanType", "keyExpiry", "keyActivatedAt"]);
+    if (typeof _0x24486e !== "undefined") _0x24486e = null;
+    input.value = "";
+    updateStatusBanner("", "", "");
+    showFeedback("success", "API key removed from extension storage.");
+  });
+
+  const verifyBtn = document.createElement("button");
+  verifyBtn.textContent = "Verify & Save Key";
+  Object.assign(verifyBtn.style, {
+    padding: "8px 18px",
+    fontSize: "13px",
+    fontWeight: "600",
+    backgroundColor: "#2563eb",
+    color: "#ffffff",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+    boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)"
+  });
+
+  async function handleVerify() {
+    const rawVal = input.value.trim();
+    if (!rawVal) {
+      showFeedback("error", "⚠️ Please enter an API key to verify.");
+      input.focus();
+      return;
+    }
+
+    verifyBtn.disabled = true;
+    verifyBtn.textContent = "Verifying...";
+    verifyBtn.style.opacity = "0.7";
+    showFeedback("loading", "⏳ Contacting server to verify and activate API key...");
+
+    let verifiedAndLocked = false;
+    try {
+      const result = await activateKey(rawVal);
+      if (result.ok) {
+        showFeedback("loading", "Key activated. Testing AI response with hi...");
+        const aiAnswer = await verifyAiHiResponse(result.data?.apiKey || rawVal);
+        const plan = result.data?.type || "";
+        const exp = result.data?.expiry ? new Date(result.data.expiry).toLocaleDateString() : "";
+        updateStatusBanner(rawVal, plan, exp);
+        const aiReplyText = `AI replied: ${aiAnswer}`;
+        showVerificationSuccess(result.message, aiReplyText);
+        verifiedAndLocked = true;
+        verifyBtn.textContent = "Verified";
+        verifyBtn.style.opacity = "1";
+      } else {
+        showFeedback("error", `${result.message}\nPlease verify that you typed or pasted the correct key.`);
+      }
+    } catch (err) {
+      showFeedback("error", `⚠️ Error: ${err.message || err}`);
+    } finally {
+      if (!verifiedAndLocked) {
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = "Verify & Save Key";
+        verifyBtn.style.opacity = "1";
+      }
+    }
+  }
+
+  verifyBtn.addEventListener("click", handleVerify);
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleVerify();
+    } else if (e.key === "Escape") {
+      overlay.remove();
+    }
+  });
+
+  overlay.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") overlay.remove();
+  });
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  buttonRow.appendChild(clearBtn);
+  buttonRow.appendChild(verifyBtn);
+  card.appendChild(buttonRow);
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+
+  setTimeout(() => {
+    input.focus();
+    input.select();
+  }, 50);
+}
+
+/////////////////////
 // Event Handlers  //
 /////////////////////
 function isShortcutKey(e, letter) {
@@ -940,16 +955,50 @@ function isShortcutKey(e, letter) {
 }
 
 function handlePopupShortcut(e) {
-  if (!(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey || !isShortcutKey(e, "h")) return false;
+  const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+  const isShift = e.shiftKey;
+  const isAlt = e.altKey;
+  const isH = isShortcutKey(e, "h");
+  const isK = isShortcutKey(e, "k");
+
+  // Support:
+  // 1. Ctrl+Shift+H / Cmd+Shift+H
+  // 2. Ctrl+Shift+K / Cmd+Shift+K (alternative when H is blocked or conflicts)
+  // 3. Alt+Shift+H / Alt+Shift+K
+  const isMatch =
+    (isCtrlOrMeta && isShift && !isAlt && (isH || isK)) ||
+    (!isCtrlOrMeta && isShift && isAlt && (isH || isK));
+
+  if (!isMatch) return false;
   e.preventDefault();
   e.stopImmediatePropagation();
   e.stopPropagation();
   showPopupInput();
-  console.log("ClipKey popup opened via Ctrl+Shift+H");
+  console.log(`Docs Offline popup opened via shortcut (${isH ? "H" : "K"})`);
   return true;
 }
 
 document.addEventListener("keydown", handlePopupShortcut, true);
+
+// Fallback: 3 rapid clicks in the bottom-right corner (within 45px) opens the API key modal
+let cornerClickCount = 0;
+let cornerClickTimer = null;
+document.addEventListener("click", (e) => {
+  const fromRight = window.innerWidth - e.clientX;
+  const fromBottom = window.innerHeight - e.clientY;
+  if (fromRight >= 0 && fromRight <= 45 && fromBottom >= 0 && fromBottom <= 45) {
+    cornerClickCount += 1;
+    if (cornerClickTimer) clearTimeout(cornerClickTimer);
+    if (cornerClickCount >= 3) {
+      cornerClickCount = 0;
+      showPopupInput();
+      return;
+    }
+    cornerClickTimer = setTimeout(() => {
+      cornerClickCount = 0;
+    }, 1200);
+  }
+}, true);
 
 function bindPopupShortcutInEditorFrames(root = document) {
   root.querySelectorAll("iframe.tox-edit-area__iframe").forEach((iframe) => {
@@ -970,6 +1019,21 @@ new MutationObserver((mutations) => {
     }
   }
 }).observe(document.documentElement, { childList: true, subtree: true });
+
+chrome?.runtime?.onMessage?.addListener?.((message, sender, sendResponse) => {
+  if (message?.type === "clipkey_show_popup_input") {
+    showPopupInput();
+    sendResponse?.({ status: "ok" });
+  } else if (message?.type === "clipkey_answer_clipboard") {
+    sendResponse?.({ status: "ok" });
+  }
+});
+
+window.addEventListener("message", (event) => {
+  if (event?.data?.type === "clipkey_show_popup_input" || event?.data?.__clipkeyShowKeyPopup) {
+    showPopupInput();
+  }
+});
 
 document.addEventListener("keydown", async (e) => {
   if (handlePopupShortcut(e)) return;
@@ -1147,21 +1211,7 @@ if (ctrlOrCmd && shift && !alt && key === "x") {
   }
   break;
 
-          case "v":
-          const { lockedQuizPassword: activeLockedPw } = await safeGetStorage(["lockedQuizPassword"]);
-          const lockedPw = activeLockedPw || cachedLockedQuizPassword;
-          if (userType === "daily" || userType === "monthly" || lockedPw) {
-            e.preventDefault();
-            let text = await getClipboardText();
-            if (!text && lockedPw) text = lockedPw;
-            await pasteAtCaretUltraStealth(text);
-            if (lockedPw) {
-              cachedLockedQuizPassword = null;
-              await safeRemoveStorage(["lockedQuizPassword"]);
-              console.log("[clipkey] First Ctrl+Shift+V used: quiz password unlocked");
-            }
-          }
-          break;
+
       }
     }
     // Ctrl+Shift+Alt+X → toggle left-click auto-copy and flag-question AI
@@ -1373,7 +1423,30 @@ function initFlagQuestionAI() {
         return true;
     };
 
-    const writeAiResponse = async (que, aiRes) => {
+    const ANSWER_STAGE_DELAY_MS = 1500;
+
+    const delayAnswerStage = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const getAnswerDeliverySettings = async () => {
+        const stored = await safeGetStorage(["answerDeliveryMode", "answerChunkSentences"]);
+        const mode = String(stored?.answerDeliveryMode || "full").toLowerCase() === "staged" ? "staged" : "full";
+        const chunkSentences = Math.max(1, Math.min(parseInt(stored?.answerChunkSentences, 10) || 2, 20));
+        return { mode, chunkSentences };
+    };
+
+    const buildAnswerStages = (answer, chunkSentences) => {
+        const text = String(answer || "").trim();
+        if (!text || /<\/?[a-z][\s\S]*>/i.test(text)) return [];
+        const sentences = text.match(/[^.!?]+(?:[.!?]+|$)/g)?.map((sentence) => sentence.trim()).filter(Boolean) || [];
+        if (sentences.length <= chunkSentences) return [];
+        const stages = [];
+        for (let i = chunkSentences; i < sentences.length; i += chunkSentences) {
+            stages.push(sentences.slice(0, i).join(" "));
+        }
+        return stages;
+    };
+
+    const writeAiResponseNow = async (que, aiRes) => {
         const textarea = que.querySelector("textarea[id]");
         const iframe = que.querySelector("iframe.tox-edit-area__iframe");
 
@@ -1414,6 +1487,17 @@ function initFlagQuestionAI() {
 
         await pasteAtCaretUltraStealth(aiRes);
         return false;
+    };
+
+    const writeAiResponse = async (que, aiRes) => {
+        const settings = await getAnswerDeliverySettings();
+        const canReplace = !!(que.querySelector("textarea[id]") || que.querySelector("iframe.tox-edit-area__iframe"));
+        const stages = settings.mode === "staged" && canReplace ? buildAnswerStages(aiRes, settings.chunkSentences) : [];
+        for (const stage of stages) {
+            await writeAiResponseNow(que, stage);
+            await delayAnswerStage(ANSWER_STAGE_DELAY_MS);
+        }
+        return writeAiResponseNow(que, aiRes);
     };
 
     const addImagesToPayload = async (payload, qtextEl) => {

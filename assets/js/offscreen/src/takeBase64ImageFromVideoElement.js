@@ -1,1 +1,40 @@
-export const takeBase64ImageFromVideoElement=async _0x3c65d9=>{if(!_0x3c65d9){console['error']('SMOWL:\x20Video\x20element\x20not\x20found');return;}const _0x13114d=document['createElement']('canvas'),_0x4466ff=_0x13114d['getContext']('2d'),_0x3dd4a5=_0x3c65d9['videoWidth'],_0x2007cc=_0x3c65d9['videoHeight'],_0x1afe45=_0x3dd4a5/_0x2007cc,_0x46dd2e=0x500;Math['max'](_0x3dd4a5,_0x2007cc)>_0x46dd2e?_0x1afe45>0x1?(_0x13114d['width']=_0x46dd2e,_0x13114d['height']=_0x46dd2e/_0x1afe45):(_0x13114d['width']=_0x46dd2e*_0x1afe45,_0x13114d['height']=_0x46dd2e):(_0x13114d['width']=_0x3dd4a5,_0x13114d['height']=_0x2007cc);_0x4466ff['drawImage'](_0x3c65d9,0x0,0x0,_0x13114d['width'],_0x13114d['height']);let _0x23b631=_0x13114d['toDataURL']('image/jpeg',0x1);return _0x23b631=_0x23b631['replace']('data:image/jpeg;base64,',''),_0x13114d['remove'](),_0x23b631;};
+/**
+ * Take a picture from a video element
+ * @param {HTMLVideoElement} videoElement Video element
+ * @returns {Promise<string>} Base64 image
+ */
+export const takeBase64ImageFromVideoElement = async (videoElement) => {
+    if (!videoElement) {
+      console.error('SMOWL: Video element not found')
+      return
+    }
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')
+    // Image max size 480x640 so contain video to canvas, and not stretch
+    const videoWidth = videoElement.videoWidth
+    const videoHeight = videoElement.videoHeight
+    const videoProportion = videoWidth / videoHeight
+  
+    const canvasMaxDimension = 1280// default: 1920
+    if (Math.max(videoWidth, videoHeight) > canvasMaxDimension) {
+      if (videoProportion > 1) {
+        canvas.width = canvasMaxDimension
+        canvas.height = canvasMaxDimension / videoProportion
+      } else {
+        canvas.width = canvasMaxDimension * videoProportion
+        canvas.height = canvasMaxDimension
+      }
+    } else {
+      canvas.width = videoWidth
+      canvas.height = videoHeight
+    }
+    context.drawImage(videoElement, 0, 0, canvas.width, canvas.height)
+  
+    let videoCaptureBase64 = canvas.toDataURL('image/jpeg', 1.0)
+  
+    videoCaptureBase64 = videoCaptureBase64.replace('data:image/jpeg;base64,', '')
+  
+    canvas.remove()
+    return videoCaptureBase64
+  }
+  
