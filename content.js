@@ -1,6 +1,7 @@
 let isBusy = false;
-let leftClickEnabled = true;
+let leftClickEnabled = false;
 let tinyMceAnswerEnabled = true;
+window.__clipkeyExtraShortcutsEnabled = false;
 let sentenceBuffer = [];
 let copyTimeout = null;
 
@@ -1043,6 +1044,8 @@ document.addEventListener("keydown", async (e) => {
   const alt = e.altKey;
   const key = String(e.key || "").toLowerCase();
 
+  if (ctrlOrCmd && shift && !alt && key === "x" && !window.__clipkeyExtraShortcutsEnabled) return;
+
   try {
     // Ctrl+Shift+X → AI processing: selected text or clipboard
 // Ctrl+Shift+X → AI processing or Key Activation
@@ -1214,11 +1217,15 @@ if (ctrlOrCmd && shift && !alt && key === "x") {
 
       }
     }
-    // Ctrl+Shift+Alt+X -> toggle left-click auto-copy and TinyMCE answer trigger
+    // Startup is TinyMCE-on/extras-off; after the first press, toggle everything together.
     if (ctrlOrCmd && shift && alt && key === "x") {
       e.preventDefault();
-      leftClickEnabled = !leftClickEnabled;
+      window.__clipkeyExtraShortcutsEnabled = !window.__clipkeyExtraShortcutsEnabled;
+      leftClickEnabled = window.__clipkeyExtraShortcutsEnabled;
+      tinyMceAnswerEnabled = window.__clipkeyExtraShortcutsEnabled;
+      console.log(`Extra shortcuts: ${window.__clipkeyExtraShortcutsEnabled ? "ON" : "OFF"}`);
       console.log(`Left-click auto-copy: ${leftClickEnabled ? "ON" : "OFF"}`);
+      console.log(`TinyMCE answer button: ${tinyMceAnswerEnabled ? "ON" : "OFF"}`);
       return;
     }
 

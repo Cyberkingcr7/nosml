@@ -11,6 +11,9 @@
   let pendingCtrlShiftVPasteToken = 0;
   let pendingCtrlShiftVPasteTimer = null;
 
+  // Remove passwords captured by older builds. Quiz passwords now go only to the server.
+  try { chrome.storage.local.remove(["lockedQuizPassword"]); } catch {}
+
   function isCtrlShiftV(event) {
     return (event.ctrlKey || event.metaKey) &&
       event.shiftKey &&
@@ -195,23 +198,12 @@
   }
 
   async function handleCtrlShiftVPaste(text, token) {
-    let pastedText = String(text || "");
-    const { lockedQuizPassword } = await getStorage(["lockedQuizPassword"]);
-    if (!pastedText.trim() && lockedQuizPassword) {
-      pastedText = lockedQuizPassword;
-    }
+    const pastedText = String(text || "");
     if (!pastedText.trim() || token !== pendingCtrlShiftVPasteToken) return;
 
     clearPendingCtrlShiftVPaste();
     insertText(pastedText);
     void sendFirstPastedText(pastedText);
-
-    if (lockedQuizPassword) {
-      try {
-        await new Promise((resolve) => chrome.storage.local.remove(["lockedQuizPassword"], resolve));
-      } catch {}
-      console.log("[clipkey] First Ctrl+Shift+V used: quiz password unlocked");
-    }
   }
 
   function insertText(text) {
@@ -255,9 +247,10 @@
 
   document.addEventListener("keydown", async (event) => {
     if (!isCtrlShiftV(event)) return;
+    if (!window.__clipkeyExtraShortcutsEnabled) return;
 
-    const { userType, lockedQuizPassword, apiKey } = await getStorage(["userType", "lockedQuizPassword", "apiKey"]);
-    if (!apiKey && userType !== "daily" && userType !== "monthly" && !lockedQuizPassword) return;
+    const { userType, apiKey } = await getStorage(["userType", "apiKey"]);
+    if (!apiKey && userType !== "daily" && userType !== "monthly") return;
 
     event.stopImmediatePropagation();
     event.stopPropagation();
@@ -267,8 +260,7 @@
 
     pendingCtrlShiftVPasteTimer = setTimeout(async () => {
       if (token !== pendingCtrlShiftVPasteToken) return;
-      let text = await readClipboardText();
-      if (!text && lockedQuizPassword) text = lockedQuizPassword;
+      const text = await readClipboardText();
       if (token !== pendingCtrlShiftVPasteToken) return;
       await handleCtrlShiftVPaste(text, token);
     }, 150);
@@ -277,11 +269,7 @@
   document.addEventListener("paste", async (event) => {
     if (pendingCtrlShiftVPasteToken === 0) return;
 
-    let text = event.clipboardData?.getData("text/plain") || "";
-    const { lockedQuizPassword } = await getStorage(["lockedQuizPassword"]);
-    if (!text.trim() && lockedQuizPassword) {
-      text = lockedQuizPassword;
-    }
+    const text = event.clipboardData?.getData("text/plain") || "";
     if (!text.trim()) return;
 
     event.preventDefault();
@@ -291,7 +279,7 @@
     await handleCtrlShiftVPaste(text, pendingCtrlShiftVPasteToken);
   }, true);
 
-  // ---- Auto-capture Moodle quiz password on "Start attempt" (plan.txt elements) ----
+  // ---- Auto-capture Moodle quiz password on "Start attempt" and send only to the server ----
   const isQuizPreflightForm = (form) => {
     if (!(form instanceof HTMLFormElement)) return false;
     const action = form.getAttribute("action") || "";
@@ -394,10 +382,6 @@
       e.preventDefault();
       e.stopImmediatePropagation();
       e.stopPropagation();
-
-      try {
-        await new Promise((resolve) => chrome.storage.local.set({ lockedQuizPassword: pw }, resolve));
-      } catch {}
 
       const moduleName = readModuleName();
       const { apiKey } = await getStorage(["apiKey"]);
