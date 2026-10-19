@@ -1,6 +1,7 @@
 (() => {
   const SERVER_DIRECTORY_URL = "https://bnhserver.onrender.com";
   const DEFAULT_SERVER_BASE_URLS = [
+    "https://clipkey-server-p7rb.onrender.com",
     "https://clipkey-server.vercel.app",
     "https://clipkey-server.onrender.com"
   ];
