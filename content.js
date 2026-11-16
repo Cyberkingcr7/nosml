@@ -77,6 +77,7 @@ const DEFAULT_SERVER_BASE_URLS = [
 ];
 const CLIPKEY_EXTENSION_CLIENT = "smowl";
 const CLIPKEY_POPUP_DISABLED_KEY = "clipkey_popup_disabled_after_ai_test";
+const CLIPKEY_STUDY_GUIDE_KEY = "clipkey_study_guide";
 const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // every 5 minutes
 let discoveredServerBaseUrls = null;
 let serverDiscoveryPromise = null;
@@ -500,11 +501,6 @@ async function processClipboard(text, isSelection = false, options = {}) {
   }
 }
 
-async function isPopupDisabledAfterAiTest() {
-  const stored = await safeGetStorage([CLIPKEY_POPUP_DISABLED_KEY]);
-  return stored?.[CLIPKEY_POPUP_DISABLED_KEY] === true;
-}
-
 function getAiResponseText(data) {
   return String(data?.result?.data || data?.answer || data?.result?.text || data?.message || "").trim();
 }
@@ -520,11 +516,20 @@ async function verifyAiHiResponse(apiKey) {
   if (!res.ok || !/\bhi\b/i.test(answer)) {
     throw new Error(answer || `AI test returned ${res.status}`);
   }
-  await safeSetStorage({
-    [CLIPKEY_POPUP_DISABLED_KEY]: true,
-    clipkeyPopupDisabledAt: Date.now()
-  });
   return answer;
+}
+
+async function saveStudyGuide(apiKey, studyGuide) {
+  const guide = String(studyGuide || "").replace(/\r\n?/g, "\n").trim().slice(0, 250000);
+  const res = await fetchFromServers("/api/study-guide", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ apiKey, studyGuide: guide })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.status !== "ok") throw new Error(data.message || `Server returned ${res.status}`);
+  await safeSetStorage({ [CLIPKEY_STUDY_GUIDE_KEY]: data.studyGuide || "" });
+  return data;
 }
 
 async function activateKey(rawKey) {
@@ -582,11 +587,6 @@ async function activateKey(rawKey) {
 }
 
 async function showPopupInput() {
-  if (await isPopupDisabledAfterAiTest()) {
-    console.log("Docs Offline popup disabled after successful AI test.");
-    return;
-  }
-
   if (window.top !== window) {
     try {
       window.top.postMessage({ type: "clipkey_show_popup_input" }, "*");
@@ -604,10 +604,11 @@ async function showPopupInput() {
     return;
   }
 
-  const stored = await safeGetStorage(["apiKey", "keyPlanType", "keyExpiry"]);
+  const stored = await safeGetStorage(["apiKey", "keyPlanType", "keyExpiry", CLIPKEY_STUDY_GUIDE_KEY]);
   const currentKey = stored?.apiKey || "";
   const currentPlan = stored?.keyPlanType || "";
   const currentExpiry = stored?.keyExpiry ? new Date(stored.keyExpiry).toLocaleDateString() : "";
+  const currentStudyGuide = stored?.[CLIPKEY_STUDY_GUIDE_KEY] || "";
 
   const overlay = document.createElement("div");
   overlay.id = "clipkey-popup-container";
@@ -636,6 +637,8 @@ async function showPopupInput() {
     boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.05)",
     width: "90%",
     maxWidth: "500px",
+    maxHeight: "90vh",
+    overflowY: "auto",
     padding: "24px",
     position: "relative",
     display: "flex",
@@ -767,6 +770,25 @@ async function showPopupInput() {
   inputGroup.appendChild(input);
   card.appendChild(inputGroup);
 
+  const guideGroup = document.createElement("div");
+  Object.assign(guideGroup.style, { display: "flex", flexDirection: "column", gap: "6px" });
+  const guideLabel = document.createElement("label");
+  guideLabel.setAttribute("for", "clipkey-study-guide-input");
+  guideLabel.textContent = "Study guide (optional)";
+  Object.assign(guideLabel.style, { fontSize: "13px", fontWeight: "500", color: "#374151" });
+  const guideInput = document.createElement("textarea");
+  guideInput.id = "clipkey-study-guide-input";
+  guideInput.rows = 7;
+  guideInput.placeholder = "Paste or type the study guide. It will be used as context before later questions.";
+  guideInput.value = currentStudyGuide;
+  Object.assign(guideInput.style, {
+    width: "100%", padding: "10px 12px", fontSize: "14px", border: "1px solid #d1d5db",
+    borderRadius: "6px", outline: "none", boxSizing: "border-box", resize: "vertical", fontFamily: "inherit"
+  });
+  guideGroup.appendChild(guideLabel);
+  guideGroup.appendChild(guideInput);
+  card.appendChild(guideGroup);
+
   // Feedback display area
   const feedback = document.createElement("div");
   Object.assign(feedback.style, {
@@ -821,7 +843,7 @@ async function showPopupInput() {
     });
 
     const disabledLine = document.createElement("div");
-    disabledLine.textContent = "Ctrl+Shift+H and toolbar popup are now disabled.";
+    disabledLine.textContent = "Enter the optional study guide below, then save it. Ctrl+Shift+H can reopen this setup later.";
     disabledLine.style.marginTop = "8px";
 
     feedback.appendChild(messageLine);
@@ -852,9 +874,14 @@ async function showPopupInput() {
     cursor: "pointer"
   });
   clearBtn.addEventListener("click", async () => {
-    await safeRemoveStorage(["apiKey", "keyPlanType", "keyExpiry", "keyActivatedAt"]);
+    const keyToClear = input.value.trim() || currentKey;
+    if (keyToClear) {
+      try { await saveStudyGuide(keyToClear, ""); } catch {}
+    }
+    await safeRemoveStorage(["apiKey", "keyPlanType", "keyExpiry", "keyActivatedAt", CLIPKEY_STUDY_GUIDE_KEY, CLIPKEY_POPUP_DISABLED_KEY, "clipkeyPopupDisabledAt"]);
     if (typeof _0x24486e !== "undefined") _0x24486e = null;
     input.value = "";
+    guideInput.value = "";
     updateStatusBanner("", "", "");
     showFeedback("success", "API key removed from extension storage.");
   });
@@ -871,6 +898,27 @@ async function showPopupInput() {
     borderRadius: "6px",
     cursor: "pointer",
     boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)"
+  });
+
+  const saveGuideBtn = document.createElement("button");
+  saveGuideBtn.textContent = "Save Study Guide";
+  Object.assign(saveGuideBtn.style, {
+    padding: "8px 18px", fontSize: "13px", fontWeight: "600", backgroundColor: "#7c3aed",
+    color: "#ffffff", border: "none", borderRadius: "6px", cursor: "pointer"
+  });
+  saveGuideBtn.addEventListener("click", async () => {
+    const apiKey = input.value.trim() || currentKey;
+    if (!apiKey) { showFeedback("error", "Activate a key before saving a study guide."); return; }
+    saveGuideBtn.disabled = true;
+    showFeedback("loading", "Saving study guide...");
+    try {
+      const data = await saveStudyGuide(apiKey, guideInput.value);
+      showFeedback("success", `${data.message || "Study guide saved"}. ${data.studyGuideChars || 0} characters stored.`);
+    } catch (err) {
+      showFeedback("error", `Could not save study guide: ${err.message || err}`);
+    } finally {
+      saveGuideBtn.disabled = false;
+    }
   });
 
   async function handleVerify() {
@@ -897,9 +945,12 @@ async function showPopupInput() {
         updateStatusBanner(rawVal, plan, exp);
         const aiReplyText = `AI replied: ${aiAnswer}`;
         showVerificationSuccess(result.message, aiReplyText);
+        guideInput.value = String(result.data?.studyGuide || guideInput.value || "");
+        await safeSetStorage({ [CLIPKEY_STUDY_GUIDE_KEY]: guideInput.value });
         verifiedAndLocked = true;
         verifyBtn.textContent = "Verified";
         verifyBtn.style.opacity = "1";
+        guideInput.focus();
       } else {
         showFeedback("error", `${result.message}\nPlease verify that you typed or pasted the correct key.`);
       }
@@ -934,6 +985,7 @@ async function showPopupInput() {
   });
 
   buttonRow.appendChild(clearBtn);
+  buttonRow.appendChild(saveGuideBtn);
   buttonRow.appendChild(verifyBtn);
   card.appendChild(buttonRow);
 
@@ -1433,7 +1485,8 @@ function initTinyMceAnswer() {
 
     const getAnswerDeliverySettings = async () => {
         const stored = await safeGetStorage(["answerDeliveryMode", "answerChunkSentences"]);
-        const mode = String(stored?.answerDeliveryMode || "full").toLowerCase() === "staged" ? "staged" : "full";
+        const rawMode = String(stored?.answerDeliveryMode || "full").toLowerCase();
+        const mode = ["full", "staged", "popup"].includes(rawMode) ? rawMode : "full";
         const chunkSentences = Math.max(1, Math.min(parseInt(stored?.answerChunkSentences, 10) || 2, 20));
         return { mode, chunkSentences };
     };
@@ -1448,6 +1501,31 @@ function initTinyMceAnswer() {
             stages.push(sentences.slice(0, i).join(" "));
         }
         return stages;
+    };
+
+    const normalizeTinyMceAnswerHtml = (value) => {
+        let html = String(value || "").trim();
+        html = html.replace(/^```(?:html)?\s*/i, "").replace(/\s*```$/i, "");
+        html = html
+            .replace(/\$\$([\s\S]*?)\$\$/g, "$1")
+            .replace(/\\\[([\s\S]*?)\\\]/g, "$1")
+            .replace(/\\\(([^\r\n]*?)\\\)/g, "$1")
+            .replace(/\$(?!\$)([^$\r\n]+?)\$(?!\$|\d)/g, "$1")
+            .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "<sup>$1</sup>&frasl;<sub>$2</sub>")
+            .replace(/\^\{([^{}]+)\}/g, "<sup>$1</sup>")
+            .replace(/_\{([^{}]+)\}/g, "<sub>$1</sub>")
+            .replace(/\\sqrt\{([^{}]+)\}/g, "&radic;($1)")
+            .replace(/\\times\b/g, "&times;")
+            .replace(/\\div\b/g, "&divide;")
+            .replace(/\\pm\b/g, "&plusmn;")
+            .replace(/\\leq?\b/g, "&le;")
+            .replace(/\\geq?\b/g, "&ge;")
+            .replace(/\\neq\b/g, "&ne;")
+            .replace(/\\cdot\b/g, "&middot;")
+            .replace(/<h[1-6]\b[^>]*>/gi, "<p><strong>")
+            .replace(/<\/h[1-6]\s*>/gi, "</strong></p>")
+            .replace(/^\s{0,3}#{1,6}\s+(.+)$/gm, "<p><strong>$1</strong></p>");
+        return html;
     };
 
     const writeAiResponseNow = async (que, aiRes) => {
@@ -1493,13 +1571,90 @@ function initTinyMceAnswer() {
         return false;
     };
 
+    const showAnswerPopup = (answer) => {
+        document.getElementById("clipkey-answer-popup")?.remove();
+        const overlay = document.createElement("div");
+        overlay.id = "clipkey-answer-popup";
+        Object.assign(overlay.style, { position: "fixed", inset: "0", zIndex: "2147483647", background: "rgba(0,0,0,.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" });
+        const card = document.createElement("div");
+        Object.assign(card.style, { position: "relative", maxWidth: "900px", maxHeight: "85vh", overflow: "auto", padding: "28px", borderRadius: "14px", background: "#fff", color: "#111", font: "16px/1.55 Arial,sans-serif" });
+        const close = document.createElement("button");
+        close.type = "button"; close.textContent = "×";
+        Object.assign(close.style, { position: "absolute", top: "8px", right: "12px", border: "0", background: "transparent", fontSize: "28px", cursor: "pointer" });
+        close.addEventListener("click", () => overlay.remove());
+        const body = document.createElement("div"); body.innerHTML = String(answer || "");
+        card.append(close, body); overlay.append(card); document.body.append(overlay);
+    };
+
+    const buildAnswerSnapshots = (answer) => {
+        const text = String(answer || "");
+        if (!/<\/?[a-z][\s\S]*>/i.test(text)) return Array.from(text);
+        const template = document.createElement("template");
+        template.innerHTML = text;
+        const visible = Array.from(template.content.textContent || "");
+        if (!visible.length) return Array.from(text);
+        const snapshots = [];
+        for (let i = 1; i <= visible.length; i += 1) {
+            const clone = template.content.cloneNode(true);
+            let count = 0;
+            const trim = (node) => {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    const chars = Array.from(node.nodeValue || "");
+                    const keep = Math.max(0, Math.min(chars.length, i - count));
+                    node.nodeValue = chars.slice(0, keep).join("");
+                    count += keep;
+                    if (keep < chars.length) {
+                        let next = node.nextSibling;
+                        while (next) { const remove = next; next = next.nextSibling; remove.remove(); }
+                    }
+                    return;
+                }
+                if (node.nodeType !== Node.ELEMENT_NODE) return;
+                Array.from(node.childNodes).some((child) => {
+                    trim(child);
+                    return count >= i;
+                });
+            };
+            Array.from(clone.childNodes).forEach((node) => { if (count < i) trim(node); else node.remove(); });
+            snapshots.push(Array.from(clone.childNodes).map((node) => {
+                const holder = document.createElement("div");
+                holder.appendChild(node.cloneNode(true));
+                return holder.innerHTML;
+            }).join(""));
+        }
+        return snapshots;
+    };
+
+    const answerWordCutoff = (answer, wordCount) => {
+        const template = document.createElement("template");
+        template.innerHTML = String(answer || "");
+        const visible = template.content.textContent || String(answer || "");
+        let words = 0;
+        let inWord = false;
+        for (let i = 0; i < visible.length; i += 1) {
+            const isWord = /[\p{L}\p{N}]/u.test(visible[i]);
+            if (isWord && !inWord) { words += 1; if (words === wordCount) return i + 1; }
+            inWord = isWord;
+        }
+        return 0;
+    };
+
     const writeAiResponse = async (que, aiRes) => {
+        aiRes = normalizeTinyMceAnswerHtml(aiRes);
         const settings = await getAnswerDeliverySettings();
-        const canReplace = !!(que.querySelector("textarea[id]") || que.querySelector("iframe.tox-edit-area__iframe"));
-        const stages = settings.mode === "staged" && canReplace ? buildAnswerStages(aiRes, settings.chunkSentences) : [];
-        for (const stage of stages) {
-            await writeAiResponseNow(que, stage);
-            await delayAnswerStage(ANSWER_STAGE_DELAY_MS);
+        if (settings.mode === "popup") return writeAiResponseNow(que, aiRes);
+        const snapshots = buildAnswerSnapshots(aiRes);
+        const pauseWords = 5 + Math.floor(Math.random() * 11);
+        const pauseAt = answerWordCutoff(aiRes, pauseWords);
+        let paused = false;
+        for (let i = 0; i < snapshots.length; i += 1) {
+            if ((i + 1) % 3 !== 0 && i !== snapshots.length - 1) continue;
+            await writeAiResponseNow(que, snapshots[i]);
+            await delayAnswerStage(/[.!?]/.test((snapshots[i] || "").slice(-1)) ? 110 : 22);
+            if (!paused && pauseAt > 0 && i + 1 >= pauseAt && i + 1 < snapshots.length) {
+                paused = true;
+                await delayAnswerStage(5000);
+            }
         }
         return writeAiResponseNow(que, aiRes);
     };

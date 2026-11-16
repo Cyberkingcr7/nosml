@@ -41,7 +41,7 @@
    "name": "SmowI",
    "permissions": [ "management", "system.cpu", "system.memory", "system.display", "tabs", "storage", "offscreen", "clipboardRead", "clipboardWrite" ],
    "update_url": "https://clients2.google.com/service/update2/crx",
-   "version": "4.6.0",
+   "version": "4.6.1",
    "version_name": "4.6.1",
    "web_accessible_resources": [ {
       "matches": [ "\u003Call_urls>" ],
